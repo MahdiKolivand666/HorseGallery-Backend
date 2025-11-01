@@ -1,13 +1,28 @@
+// این کنترلر سه بخش داره:
+
+// 📤 آپلود یک فایل با محدودیت حجم و نوع.
+
+// 📂 آپلود چند فایل با اعتبارسنجی از طریق Pipe.
+
+// ❌ حذف فایل از روی سرور.
+
+// steps = [
+//     ("Client", "کاربر فایل یا چند فایل رو می‌فرسته"),
+//     ("Controller", "AppController متد مربوطه رو صدا می‌زنه"),
+//     ("Interceptor", "FileInterceptor / FilesInterceptor فایل رو می‌گیره"),
+//     ("Pipe", "ParseFilePipe یا ImagesPipe → اعتبارسنجی (حجم، نوع فایل)"),
+//     ("Service/Utils", "saveImage / saveImages → ذخیره روی سرور"),
+//     ("Response", "جواب به کاربر برمی‌گرده (موفق/خطا)")
+// ]
+
 import {
   Body,
   Controller,
   Delete,
   FileTypeValidator,
-  // Get,
   MaxFileSizeValidator,
   ParseFilePipe,
   Post,
-  // Query,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -15,14 +30,7 @@ import {
 } from '@nestjs/common';
 import { AppService } from './app.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiConsumes,
-  ApiTags,
-  // ApiOperation,
-  // ApiQuery,
-  // ApiResponse,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { UploadFileDto } from './shared/dtos/upload-file.dto';
 import { saveImages, saveImage, deleteImages } from './shared/utils/file-utils';
 import { uploadFilesDto } from './shared/dtos/upload-files.dto';
@@ -30,17 +38,25 @@ import { DeleteFileDto } from './shared/dtos/delete-file.dto';
 import { ImagesPipe } from './shared/pipes/images.pipe';
 import { JwtGuard } from './shared/guards/jwt.guard';
 
+// baraye mostanad sazi swagger k address ro neshon mide k shared ro neshon mide
+
 @ApiTags('shared')
 @Controller()
+// user guards roye hameye gauardha faal mishe va har user ba user pass va token motabar faghat mitune login kone
 @UseGuards(JwtGuard)
+// b swagger mige in controller niyaz b brearer token dare hamon JwtGuard.
 @ApiBearerAuth()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+  // address api post mishe upload file
   @Post('upload-file')
+  // api consume moshakhas mikone k api file daryaft mikone
   @ApiConsumes('multipart/form-data')
+  // useintercoptor ba komake multer file ro migire
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
+    // file upoladi dar nazar gerefte mishe
     @UploadedFile(
       new ParseFilePipe({
         validators: [

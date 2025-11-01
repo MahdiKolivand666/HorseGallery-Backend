@@ -11,7 +11,9 @@ import helmet from 'helmet';
 const csrf = require('als-csrf');
 
 async function bootstrap() {
+  // inja app ro ijad mikone
   const app = await NestFactory.create(AppModule);
+  // helmet ye middlware amniyati hastesh k header haye http ro tanzim mikone ta dar barabare hamlehaye xxs va click jacking moghavemtar bashe
   app.use(helmet());
   // app.use(csrf()); // Temporarily disabled for testing
   app.enableCors();
@@ -23,6 +25,8 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // idpipe ye pipe sefareshi hastesh k validationhaye objectid ro toye mongo anjam mide
   app.useGlobalPipes(new IdPipe());
   app.useGlobalFilters(new DuplicateFilter());
 
@@ -35,7 +39,7 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('/documentation', app, document);
-
-  await app.listen(3002);
+  // server roye port 4001 ejra mishe
+  await app.listen(4001);
 }
 bootstrap();
