@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Cart } from '../schemas/cart.schema';
@@ -7,9 +7,12 @@ import { newCartDto } from '../dtos/new-cart.dto';
 import { CartItemDto } from '../dtos/cart-item.dto';
 import { EditCartItemDto } from '../dtos/edit-cart-item.dto';
 import { DeleteCartItemDto } from '../dtos/delete-cat-item.dto';
+import { calculateCartTotal } from 'src/shared/utils/price-calculator';
 
 @Injectable()
 export class CartService {
+  private readonly logger = new Logger(CartService.name);
+
   constructor(
     @InjectModel(Cart.name) private readonly cartModel: Model<Cart>,
     @InjectModel(CartItem.name) private readonly cartItemModel: Model<CartItem>,
@@ -77,23 +80,31 @@ export class CartService {
 
   async getPrices(id: string) {
     const items = await this.findCartItem(id);
-    let totalWithoutDiscount = 0;
-    let totalWithDiscount = 0;
 
-    for (const item of items) {
-      const price = item?.product?.price;
-      const discount = item?.product?.discount;
-      const quantity = item?.quantity;
+    this.logger.debug(
+      `Calculating prices for cart ${id} with ${items.length} items`,
+    );
 
-      const discountedPrice = price - price * (discount / 100);
-      const itemPriceWithDiscount = discountedPrice * quantity;
-      const itemPriceWithoutDiscount = price * quantity;
+    // Prepare items for calculation
+    const itemsData = items.map((item) => ({
+      price: item?.product?.price ?? 0,
+      discount: item?.product?.discount ?? 0,
+      quantity: item?.quantity ?? 0,
+    }));
 
-      totalWithoutDiscount += itemPriceWithoutDiscount;
-      totalWithDiscount += itemPriceWithDiscount;
-    }
+    // Calculate using helper function
+    const result = calculateCartTotal(itemsData);
 
-    return { totalWithoutDiscount, totalWithDiscount };
+    this.logger.debug(
+      `Cart total: ${result.priceWithDiscount} (saved: ${result.savings} - ${result.savingsPercentage}%)`,
+    );
+
+    return {
+      totalWithoutDiscount: result.priceWithoutDiscount,
+      totalWithDiscount: result.priceWithDiscount,
+      totalSavings: result.savings,
+      savingsPercentage: result.savingsPercentage,
+    };
   }
 
   async findCartItemById(id: string) {

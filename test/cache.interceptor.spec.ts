@@ -96,7 +96,7 @@ describe('CacheInterceptor', () => {
         // Second call - should return cached
         interceptor.intercept(mockContext, mockNext).subscribe((result) => {
           expect(result).toEqual({ data: 'original' });
-          expect(mockNext.handle).toHaveBeenCalledTimes(1); // Only called once
+          expect(handleFn).toHaveBeenCalledTimes(1); // Only called once
           done();
         });
       });

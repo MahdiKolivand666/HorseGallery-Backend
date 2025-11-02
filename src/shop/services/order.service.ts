@@ -17,6 +17,7 @@ import { ProductService } from 'src/product/services/product.service';
 import { EditedBy } from 'src/product/schemas/inventory-record.schema';
 import { OrderQueryDto } from '../dtos/order-query.dto';
 import { sortFunction } from 'src/shared/utils/sort-utils';
+import { calculateItemTotal } from 'src/shared/utils/price-calculator';
 
 @Injectable()
 export class OrderService {
@@ -34,6 +35,10 @@ export class OrderService {
 
   async createOrder(body: CreateOrderDto, user: string) {
     const { cartId, addressId, shippingId } = body;
+
+    this.logger.debug(
+      `Creating order for user ${user}, cart ${cartId}, address ${addressId}, shipping ${shippingId}`,
+    );
 
     // Generate idempotency key based on user and cart (without timestamp)
     const idempotencyKey = `order_${user}_${cartId}`;
@@ -80,10 +85,34 @@ export class OrderService {
 
     const cart = await this.cartService.getCartDetails(cartId);
     const shipping = await this.shippingService.findOne(shippingId);
+
+    // Validate cart has items
+    if (!cart.items || cart.items.length === 0) {
+      throw new BadRequestException('سبد خرید خالی است');
+    }
+
+    // Check stock availability for all items BEFORE creating order
+    for (const item of cart.items) {
+      const product = item?.product;
+      if (!product) {
+        throw new BadRequestException('محصول نامعتبر در سبد خرید');
+      }
+
+      if (product.stock < item.quantity) {
+        throw new BadRequestException(
+          `موجودی ${product.title} کافی نیست. موجودی فعلی: ${product.stock}`,
+        );
+      }
+    }
+
     const shippingPrice =
       cart.prices.totalWithDiscount < shipping.freeShippingThreshold
         ? shipping.price
         : 0;
+
+    this.logger.debug(
+      `Cart total: ${cart.prices.totalWithDiscount}, Shipping: ${shippingPrice}, Final: ${cart.prices.totalWithDiscount + shippingPrice}`,
+    );
 
     const order = new this.orderModel({
       user: user,
@@ -108,16 +137,19 @@ export class OrderService {
         const discount = item?.product?.discount;
         const quantity = item?.quantity;
 
-        const discountedPrice = price - price * (discount / 100);
-        const itemPriceWithDiscount = discountedPrice * quantity;
-        const itemPriceWithoutDiscount = price * quantity;
+        // Use helper function for consistent calculation
+        const itemPrices = calculateItemTotal(price, discount, quantity);
+
+        this.logger.debug(
+          `OrderItem: ${item.product.title} x${quantity} = ${itemPrices.priceWithDiscount} (saved: ${itemPrices.savings})`,
+        );
 
         const orderItem = new this.orderItemModel({
           order: order._id, // Types.ObjectId
           product: item.product._id, // Types.ObjectId
           quantity: item.quantity,
-          priceWithDiscount: itemPriceWithDiscount,
-          priceWithoutDiscount: itemPriceWithoutDiscount,
+          priceWithDiscount: itemPrices.priceWithDiscount,
+          priceWithoutDiscount: itemPrices.priceWithoutDiscount,
         });
         await orderItem.save();
 
@@ -132,7 +164,7 @@ export class OrderService {
       await order.save();
 
       this.logger.log(
-        `Order created successfully: ${(order._id as Types.ObjectId).toString()}, authority: ${order.refId}`,
+        `Order created successfully: ${(order._id as Types.ObjectId).toString()}, authority: ${order.refId}, final price: ${order.finalPrice}`,
       );
 
       return order.refId;
