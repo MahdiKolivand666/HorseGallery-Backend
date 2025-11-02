@@ -14,12 +14,7 @@ import { BlogModule } from './blog/blog.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import {
-  APP_FILTER,
-  APP_GUARD,
-  APP_INTERCEPTOR,
-  MiddlewareBuilder,
-} from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LogFilter } from './shared/filters/log.filter';
 import { Log, LogSchema } from './shared/schemas/log.schema';
 import { ConfigModule, ConfigService } from '@nestjs/config';
