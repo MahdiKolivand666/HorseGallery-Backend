@@ -7,6 +7,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OrderService } from '../services/order.service';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -25,6 +26,7 @@ export class SiteOrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly cartService: CartService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Post()
@@ -43,6 +45,9 @@ export class SiteOrderController {
     @Query() query: PaymentCallbackDto,
     @Res() response: Response,
   ) {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
     if (query.authority) {
       const order = await this.orderService.findOrderByRefId(query.authority);
 
@@ -51,7 +56,6 @@ export class SiteOrderController {
       );
 
       const orderId = (order._id as Types.ObjectId).toString();
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
       if (bankResponse.status === 101) {
         order.status = OrderStatus.Paid;
@@ -65,7 +69,6 @@ export class SiteOrderController {
         return response.redirect(`${frontendUrl}/order/failed?id=${orderId}`);
       }
     } else {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       return response.redirect(`${frontendUrl}/order/failed`);
     }
   }

@@ -22,7 +22,7 @@ import {
 } from '@nestjs/core';
 import { LogFilter } from './shared/filters/log.filter';
 import { Log, LogSchema } from './shared/schemas/log.schema';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LogInterceptor } from './shared/interceptors/log.interceptor';
 import { TimeMiddleware } from './shared/middleware/time.middleware';
 import { UserModule } from './user/user.module';
@@ -37,6 +37,7 @@ import { ShopModule } from './shop/shop.module';
   imports: [
     ConfigModule.forRoot({
       envFilePath: '.env',
+      isGlobal: true,
     }),
 
     // ThrottlerModule and ThrottlerGuard for rate limiting
@@ -48,9 +49,13 @@ import { ShopModule } from './shop/shop.module';
     ]),
 
     // JWT Module for user token management
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      global: true,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        global: true,
+      }),
+      inject: [ConfigService],
     }),
     BlogModule,
     // Mongoose connection to MongoDB database

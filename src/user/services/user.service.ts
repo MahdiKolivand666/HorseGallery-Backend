@@ -89,7 +89,7 @@ export class UserService {
       throw new NotFoundException();
     }
   }
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   async signin(body: AuthDto) {
     const { mobile, password } = body;
     const user = await this.findOneByMobile(mobile);

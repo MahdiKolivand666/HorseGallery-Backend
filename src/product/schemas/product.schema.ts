@@ -42,6 +42,33 @@ export class Product extends Document {
     type: String,
   })
   url: string;
+
+  @Prop({ required: false })
+  weight: number; // Weight in grams
+
+  @Prop({ required: false })
+  karat: number; // Karat (18, 21, 24)
+
+  @Prop({
+    required: false,
+    enum: ['دستبند', 'گردنبند', 'انگشتر', 'گوشواره', 'پابند', 'سایر'],
+  })
+  type: string; // Jewelry type
+
+  @Prop({
+    required: false,
+    enum: ['طلای زرد', 'طلای سفید', 'طلای رزگلد'],
+  })
+  material: string; // Gold type
+
+  @Prop({ required: false })
+  dimensions: string; // Dimensions
+
+  @Prop({ default: false })
+  hasCertificate: boolean; // Has authenticity certificate
+
+  @Prop({ required: false })
+  certificateNumber: string; // Certificate number
 }
 
 export const productSchema = SchemaFactory.createForClass(Product);

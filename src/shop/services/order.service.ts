@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Order, OrderStatus } from '../schemas/order.schema';
 import { Model, Types } from 'mongoose';
@@ -24,6 +25,7 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly shippingService: ShippingService,
     private readonly productService: ProductService,
+    private readonly configService: ConfigService,
   ) {}
 
   async createOrder(body: CreateOrderDto, user: string) {
@@ -78,7 +80,7 @@ export class OrderService {
       await order.save();
       return order.refId;
     } else {
-      throw new BadRequestException('در درگاه پرداخت مشکلی پیش آمده است');
+      throw new BadRequestException('خطا در ایجاد درخواست پرداخت');
     }
   }
 
@@ -104,31 +106,44 @@ export class OrderService {
     try {
       const order = await this.findOneOrder(id);
       const bankData = {
-        merchant_id: process.env.MERCHANT_ID,
+        merchant_id: this.configService.get<string>('MERCHANT_ID'),
         amount: order.finalPrice * 10,
         authority: order.refId,
       };
 
-      const response = await axios.post(process.env.BANK_VERIFY_URL!, bankData);
+      const bankVerifyUrl = this.configService.get<string>('BANK_VERIFY_URL');
+      if (!bankVerifyUrl) {
+        throw new BadRequestException('آدرس درگاه بانکی تنظیم نشده است');
+      }
+
+      const response = await axios.post(bankVerifyUrl, bankData);
       return response?.data?.data;
     } catch (error) {
-      throw new BadRequestException('Error connecting to bank gateway');
+      throw new BadRequestException('خطا در ارتباط با درگاه بانکی');
     }
   }
 
   async createPaymentRequest(finalPrice: number) {
     try {
+      const merchantId = this.configService.get<string>('MERCHANT_ID');
+      const serverUrl = this.configService.get<string>('SERVER_URL');
+      const bankUrl = this.configService.get<string>('BANK_URL');
+
+      if (!merchantId || !serverUrl || !bankUrl) {
+        throw new BadRequestException('تنظیمات درگاه پرداخت کامل نیست');
+      }
+
       const bankData = {
-        merchant_id: process.env.MERCHANT_ID,
+        merchant_id: merchantId,
         amount: finalPrice * 10,
         description: 'Gold Gallery Order',
-        callback_url: `${process.env.SERVER_URL}/site/order/callback`,
+        callback_url: `${serverUrl}/site/order/callback`,
       };
 
-      const response = await axios.post(process.env.BANK_URL!, bankData);
+      const response = await axios.post(bankUrl, bankData);
       return response?.data?.data;
     } catch (error) {
-      throw new BadRequestException('Error creating payment request');
+      throw new BadRequestException('خطا در ایجاد درخواست پرداخت');
     }
   }
 }
