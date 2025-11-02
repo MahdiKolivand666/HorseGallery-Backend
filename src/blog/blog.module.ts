@@ -10,9 +10,11 @@ import {
 } from './schemas/blog-category.schema';
 import { BlogCategoryService } from './services/blog-category.service';
 import { SiteBlogController } from './controllers/site-blog.controller';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
+    JwtModule,
     MongooseModule.forFeature([
       { name: Blog.name, schema: BlogSchema },
       {

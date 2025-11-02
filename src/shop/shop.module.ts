@@ -11,8 +11,10 @@ import { ShippingService } from './services/shipping.service';
 import { Order, orderSchema } from './schemas/order.schema';
 import { OrderItem, orderItemSchema } from './schemas/order-item.schema';
 import { SiteOrderController } from './controllers/site-order.controller';
+import { OrderController } from './controllers/order.controller';
 import { OrderService } from './services/order.service';
 import { ProductModule } from 'src/product/product.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   controllers: [
@@ -20,9 +22,11 @@ import { ProductModule } from 'src/product/product.module';
     ShippingController,
     SiteShippingController,
     SiteOrderController,
+    OrderController,
   ],
   providers: [CartService, ShippingService, OrderService],
   imports: [
+    JwtModule,
     ProductModule,
     MongooseModule.forFeature([
       { name: Cart.name, schema: cartSchema },

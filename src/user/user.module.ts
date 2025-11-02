@@ -7,11 +7,13 @@ import { AuthController } from './controllers/auth.controller';
 import { PanelController } from './controllers/panel.controller';
 import { Address, addressSchema } from './schemas/address.schema';
 import { AddressService } from './services/address.service';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   controllers: [UserController, AuthController, PanelController],
   providers: [UserService, AddressService],
   imports: [
+    JwtModule,
     MongooseModule.forFeature([
       { name: User.name, schema: userSchema },
       { name: Address.name, schema: addressSchema },

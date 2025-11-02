@@ -8,9 +8,11 @@ import {
 import { PanelTicketController } from './controllers/panel-ticket.controller';
 import { TicketService } from './services/ticket.service';
 import { TicketController } from './controllers/ticket.controller';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
+    JwtModule,
     MongooseModule.forFeature([
       { name: Ticket.name, schema: ticketSchema },
       { name: TicketMessage.name, schema: ticketMessageSchema },

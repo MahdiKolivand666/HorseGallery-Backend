@@ -15,6 +15,8 @@ import axios from 'axios';
 import { ProductService } from 'src/product/services/product.service';
 import { EditedBy } from 'src/product/schemas/inventory-record.schema';
 import { Product } from 'src/product/schemas/product.schema';
+import { OrderQueryDto } from '../dtos/order-query.dto';
+import { sortFunction } from 'src/shared/utils/sort-utils';
 
 @Injectable()
 export class OrderService {
@@ -145,5 +147,94 @@ export class OrderService {
     } catch (error) {
       throw new BadRequestException('خطا در ایجاد درخواست پرداخت');
     }
+  }
+
+  // Admin methods for order management
+  async findAll(
+    queryParams: OrderQueryDto,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
+    const { limit = 10, page = 1, sort, status, userId, mobile } = queryParams;
+    const query: Record<string, unknown> = {};
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (userId) {
+      query.user = userId;
+    }
+
+    const sortObject = sortFunction(sort);
+
+    let orderQuery = this.orderModel
+      .find(query)
+      .populate('user', { firstName: 1, lastName: 1, mobile: 1 })
+      .populate('shipping', { name: 1, price: 1 })
+      .populate('address')
+      .sort(sortObject)
+      .select(selectObject)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Filter by mobile if provided
+    if (mobile) {
+      orderQuery = orderQuery.populate({
+        path: 'user',
+        match: { mobile: { $regex: mobile, $options: 'i' } },
+        select: { firstName: 1, lastName: 1, mobile: 1 },
+      });
+    }
+
+    const orders = await orderQuery.exec();
+
+    // Filter out orders with null users (from mobile filter)
+    const filteredOrders = mobile
+      ? orders.filter((order) => order.user !== null)
+      : orders;
+
+    const count = mobile
+      ? filteredOrders.length
+      : await this.orderModel.countDocuments(query);
+
+    return { count, orders: filteredOrders };
+  }
+
+  async findOneOrderDetails(id: string) {
+    const order = await this.orderModel
+      .findById(id)
+      .populate('user', { firstName: 1, lastName: 1, mobile: 1 })
+      .populate('shipping', { name: 1, price: 1 })
+      .populate('address')
+      .select({ __v: 0 })
+      .exec();
+
+    if (!order) {
+      throw new NotFoundException('سفارش یافت نشد');
+    }
+
+    const orderItems = await this.orderItemModel
+      .find({ order: id })
+      .populate('product', { title: 1, images: 1, price: 1, discount: 1 })
+      .select({ __v: 0 })
+      .exec();
+
+    return {
+      ...order.toObject(),
+      items: orderItems,
+    };
+  }
+
+  async updateOrderStatus(id: string, status: OrderStatus) {
+    const order = await this.orderModel.findById(id);
+
+    if (!order) {
+      throw new NotFoundException('سفارش یافت نشد');
+    }
+
+    order.status = status;
+    await order.save();
+
+    return order;
   }
 }

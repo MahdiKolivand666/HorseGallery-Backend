@@ -15,6 +15,7 @@ import {
   inventoryRecordSchema,
 } from './schemas/inventory-record.schema';
 import { InventoryRecordService } from './services/inventory-record.service';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   controllers: [
@@ -25,6 +26,7 @@ import { InventoryRecordService } from './services/inventory-record.service';
   exports: [ProductService],
   providers: [ProductService, ProductCategoryService, InventoryRecordService],
   imports: [
+    JwtModule,
     MongooseModule.forFeature([
       {
         name: Product.name,
