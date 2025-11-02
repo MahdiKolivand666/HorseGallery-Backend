@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthDto } from '../dtos/auth.dto';
 import { MobilePipe } from 'src/shared/pipes/mobile.pipe';
@@ -9,6 +9,7 @@ import { ResendDto } from '../dtos/resend.dto';
 import { SignUpDto } from '../dtos/signup.dto';
 import { FarsiPipe } from 'src/shared/pipes/farsi.pipe';
 import { Role } from '../schemas/user.schema';
+import type { Request } from 'express';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -16,13 +17,16 @@ export class AuthController {
   constructor(private readonly userService: UserService) {}
 
   @Post('sign-in')
-  signIn(@Body(MobilePipe, new PasswordPipe(false)) body: AuthDto) {
-    return this.userService.signin(body);
+  signIn(
+    @Body(MobilePipe, new PasswordPipe(false)) body: AuthDto,
+    @Req() req: Request,
+  ) {
+    return this.userService.signin(body, req);
   }
 
   @Post('confirm')
-  confirmCode(@Body(MobilePipe) body: ConfirmDto) {
-    return this.userService.confirm(body);
+  confirmCode(@Body(MobilePipe) body: ConfirmDto, @Req() req: Request) {
+    return this.userService.confirm(body, req);
   }
 
   @Post('resend')

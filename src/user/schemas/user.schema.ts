@@ -36,6 +36,13 @@ export class User extends Document {
 
   @Prop({ default: 0 })
   codeSentCount: number;
+
+  // Refresh token fields
+  @Prop({ required: false })
+  refreshToken?: string;
+
+  @Prop({ required: false })
+  refreshTokenExpiry?: Date;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

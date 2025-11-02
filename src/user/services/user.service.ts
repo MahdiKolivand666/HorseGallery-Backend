@@ -16,6 +16,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfirmDto } from '../dtos/confirm.dto';
 import { SmsService } from 'src/shared/services/sms.service';
 import { ConfigService } from '@nestjs/config';
+import { SecurityLogService } from 'src/shared/services/security-log.service';
+import type { Request } from 'express';
 
 @Injectable()
 export class UserService {
@@ -24,6 +26,7 @@ export class UserService {
     private readonly jwtService: JwtService,
     private readonly smsService: SmsService,
     private readonly configService: ConfigService,
+    private readonly securityLogService: SecurityLogService,
   ) {}
 
   async findAll(
@@ -94,25 +97,54 @@ export class UserService {
     }
   }
 
-  async signin(body: AuthDto) {
+  async signin(body: AuthDto, req?: Request) {
     const { mobile, password } = body;
-    const user = await this.findOneByMobile(mobile);
+    const ipAddress = req?.ip || 'unknown';
 
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    try {
+      const user = await this.findOneByMobile(mobile);
 
-    if (!isPasswordCorrect) {
-      throw new BadRequestException('رمز عبور اشتباه است');
-    } else {
-      await this.sendCode(mobile);
+      const isPasswordCorrect = await bcrypt.compare(password, user.password);
+
+      if (!isPasswordCorrect) {
+        // Log failed attempt
+        await this.securityLogService.logLoginFailed(
+          mobile,
+          ipAddress,
+          'Incorrect password',
+          req?.headers['user-agent'],
+        );
+        throw new BadRequestException('رمز عبور اشتباه است');
+      } else {
+        await this.sendCode(mobile);
+      }
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        // Log failed attempt (user not found)
+        await this.securityLogService.logLoginFailed(
+          mobile,
+          ipAddress,
+          'User not found',
+          req?.headers['user-agent'],
+        );
+      }
+      throw error;
     }
   }
 
-  async confirm(body: ConfirmDto) {
+  async confirm(body: ConfirmDto, req?: Request) {
     const { mobile, code } = body;
     const user = await this.findOneByMobile(mobile);
+    const ipAddress = req?.ip || 'unknown';
 
     // Check if code exists
     if (!user.code) {
+      await this.securityLogService.logLoginFailed(
+        mobile,
+        ipAddress,
+        'Code not found',
+        req?.headers['user-agent'],
+      );
       throw new BadRequestException(
         'کد تایید یافت نشد. لطفاً مجدد درخواست کنید',
       );
@@ -120,11 +152,23 @@ export class UserService {
 
     // Check if code is expired
     if (user.codeExpiry && new Date() > user.codeExpiry) {
+      await this.securityLogService.logLoginFailed(
+        mobile,
+        ipAddress,
+        'Code expired',
+        req?.headers['user-agent'],
+      );
       throw new BadRequestException('کد تایید منقضی شده است');
     }
 
     // Check code attempts limit
     if (user.codeAttempts >= 3) {
+      await this.securityLogService.logLoginFailed(
+        mobile,
+        ipAddress,
+        'Too many failed attempts',
+        req?.headers['user-agent'],
+      );
       throw new BadRequestException(
         'تعداد تلاش‌های اشتباه بیش از حد مجاز. لطفاً کد جدید درخواست کنید',
       );
@@ -137,6 +181,13 @@ export class UserService {
       // Increment failed attempts
       user.codeAttempts += 1;
       await user.save();
+
+      await this.securityLogService.logLoginFailed(
+        mobile,
+        ipAddress,
+        'Incorrect code',
+        req?.headers['user-agent'],
+      );
 
       throw new BadRequestException(
         `کد اشتباه است. ${3 - user.codeAttempts} تلاش باقی مانده`,
