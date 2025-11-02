@@ -1,13 +1,13 @@
 import sharp from 'sharp';
 import * as mkdirp from 'mkdirp';
-import { uploadFilesDto } from '../dtos/upload-files.dto';
+import { UploadFilesDto } from '../dtos/upload-files.dto';
 import { UploadFileDto } from '../dtos/upload-file.dto';
 import * as fs from 'fs';
 import { Logger } from '@nestjs/common';
 
 export const saveImages = async (
   files: Array<Express.Multer.File>,
-  body: uploadFilesDto,
+  body: UploadFilesDto,
 ) => {
   const destination = 'files/' + body.folder;
   mkdirp.sync(destination + '/main');

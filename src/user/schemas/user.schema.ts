@@ -39,3 +39,8 @@ export class User extends Document {
 }
 
 export const userSchema = SchemaFactory.createForClass(User);
+
+// Indexes for better query performance
+// Note: mobile already has unique index from @Prop({ unique: true })
+userSchema.index({ role: 1 });
+userSchema.index({ createdAt: -1 });

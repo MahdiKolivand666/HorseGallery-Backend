@@ -27,3 +27,9 @@ export class Blog extends Document {
 }
 
 export const BlogSchema = SchemaFactory.createForClass(Blog);
+
+// Indexes for better query performance
+BlogSchema.index({ url: 1 }, { unique: true });
+BlogSchema.index({ category: 1 });
+BlogSchema.index({ createdAt: -1 });
+BlogSchema.index({ category: 1, createdAt: -1 }); // Compound index for category blog lists

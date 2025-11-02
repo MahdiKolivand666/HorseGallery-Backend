@@ -75,6 +75,15 @@ export class Product extends Document {
 
 export const productSchema = SchemaFactory.createForClass(Product);
 
+// Indexes for better query performance
+productSchema.index({ slug: 1 }, { unique: true });
+productSchema.index({ category: 1 });
+productSchema.index({ isAvailable: 1 });
+productSchema.index({ stock: 1 });
+productSchema.index({ createdAt: -1 });
+productSchema.index({ category: 1, isAvailable: 1 }); // Compound index for common queries
+productSchema.index({ slug: 1, isAvailable: 1 }); // Compound index for product detail
+
 // Optimistic locking
 productSchema.pre('save', function (next) {
   if (this.isModified('stock')) {

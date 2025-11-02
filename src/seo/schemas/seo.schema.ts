@@ -24,3 +24,6 @@ export class Seo extends Document {
 }
 
 export const seoSchema = SchemaFactory.createForClass(Seo);
+
+// Indexes for better query performance
+seoSchema.index({ url: 1 }, { unique: true });

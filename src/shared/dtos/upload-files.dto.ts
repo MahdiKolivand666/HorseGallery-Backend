@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString } from 'class-validator';
 
-export class uploadFilesDto {
+export class UploadFilesDto {
   @ApiProperty({
     type: 'array',
     required: false,

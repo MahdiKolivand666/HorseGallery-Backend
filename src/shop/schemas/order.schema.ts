@@ -64,5 +64,11 @@ export class Order extends Document {
 
 export const orderSchema = SchemaFactory.createForClass(Order);
 
-// Create index for idempotency key
+// Indexes for better query performance
 orderSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+orderSchema.index({ refId: 1 });
+orderSchema.index({ user: 1 });
+orderSchema.index({ status: 1 });
+orderSchema.index({ createdAt: -1 });
+orderSchema.index({ user: 1, status: 1 }); // Compound index for user order queries
+orderSchema.index({ user: 1, createdAt: -1 }); // Compound index for user order history
