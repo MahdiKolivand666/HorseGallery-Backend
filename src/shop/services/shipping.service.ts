@@ -15,10 +15,13 @@ export class ShippingService {
     private readonly shippingModel: Model<Shipping>,
   ) {}
 
-  async findAll(queryParams: ShippingQueryDto, selectObject: any = { __v: 0 }) {
+  async findAll(
+    queryParams: ShippingQueryDto,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const { limit = 10, page = 1, title } = queryParams;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
     if (title) query.title = { $regex: title, $options: 'i' };
 
     const sortObject = sortFunction(queryParams?.sort);
@@ -36,7 +39,7 @@ export class ShippingService {
     return { count, shippings };
   }
 
-  async findOne(id: string, selectObject: any = { __v: 0 }) {
+  async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const shipping = await this.shippingModel
       .findOne({ _id: id })
       .select(selectObject)

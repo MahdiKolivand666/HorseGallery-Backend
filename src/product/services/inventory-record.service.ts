@@ -21,10 +21,10 @@ export class InventoryRecordService {
 
   async findAll(
     queryParams: InventoryRecordQueryDto,
-    selectObject: any = { __v: 0 },
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
   ) {
     const { limit = 5, page = 1, sort, product } = queryParams;
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (product) {
       query.product = product;

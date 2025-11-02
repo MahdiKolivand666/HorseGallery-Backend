@@ -13,10 +13,13 @@ export class SeoService {
     private readonly seoModel: Model<Seo>,
   ) {}
 
-  async findAll(queryParams: SeoQueryDto, selectObject = {}) {
+  async findAll(
+    queryParams: SeoQueryDto,
+    selectObject: Record<string, 0 | 1> = {},
+  ) {
     const { limit = 10, page = 1, url } = queryParams;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (url) query.url = { $regex: url, $options: 'i' };
 
@@ -35,7 +38,7 @@ export class SeoService {
     return { count, Seos };
   }
 
-  async findOne(id: string, selectObject = {}) {
+  async findOne(id: string, selectObject: Record<string, 0 | 1> = {}) {
     const seo = await this.seoModel
       .findOne({ _id: id })
       .select(selectObject)

@@ -15,7 +15,10 @@ export class BlogService {
     @InjectModel(Blog.name) private readonly blogModel: Model<Blog>,
   ) {}
 
-  async findAll(queryParams: BlogQueryDto, selectObject: any = { __v: 0 }) {
+  async findAll(
+    queryParams: BlogQueryDto,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const {
       limit = 5,
       page = 1,
@@ -66,7 +69,7 @@ export class BlogService {
     };
   }
 
-  async findOne(id: string, selectObject: any = { __v: 0 }) {
+  async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const blog = await this.blogModel
       .findOne({ _id: id })
       .populate('category', { title: 1 })
@@ -80,7 +83,10 @@ export class BlogService {
     }
   }
 
-  async findOneWithUrl(url: string, selectObject: any = { __v: 0 }) {
+  async findOneWithUrl(
+    url: string,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const blog = await this.blogModel
       .findOne({ url: url })
       .populate('category', { title: 1 })

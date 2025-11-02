@@ -15,10 +15,13 @@ export class AddressService {
     private readonly addressModel: Model<Address>,
   ) {}
 
-  async findAll(queryParams: AddressQueryDto, selectObject: any = { __v: 0 }) {
+  async findAll(
+    queryParams: AddressQueryDto,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const { limit = 10, page = 1, user } = queryParams;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
     if (user) query.user = user;
 
     const sortObject = sortFunction(queryParams?.sort);
@@ -36,7 +39,7 @@ export class AddressService {
     return { count, addresses };
   }
 
-  async findOne(id: string, selectObject: any = { __v: 0 }) {
+  async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const address = await this.addressModel
       .findOne({ _id: id })
       .select(selectObject)

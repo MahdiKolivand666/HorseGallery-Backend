@@ -22,10 +22,13 @@ export class UserService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async findAll(queryParams: UserQueryDto, selectObject: any = { __v: 0 }) {
+  async findAll(
+    queryParams: UserQueryDto,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const { limit = 5, page = 1, sort, lastName, mobile } = queryParams;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (lastName) {
       query.lastName = { $regex: lastName, $options: 'i' };
@@ -50,7 +53,7 @@ export class UserService {
     return { count, users };
   }
 
-  async findOne(id: string, selectObject: any = { __v: 0 }) {
+  async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const user = await this.userModel
       .findOne({ _id: id })
       .select(selectObject)

@@ -21,7 +21,10 @@ export class ProductService {
     private readonly inventoryRecordService: InventoryRecordService,
   ) {}
 
-  async findAll(queryParams: ProductQueryDto, selectObject: any = { __v: 0 }) {
+  async findAll(
+    queryParams: ProductQueryDto,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const {
       limit = 5,
       page = 1,
@@ -32,7 +35,7 @@ export class ProductService {
       exclude,
     } = queryParams;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (title) {
       query.title = { $regex: title, $options: 'i' };
@@ -66,7 +69,7 @@ export class ProductService {
     return { count, products };
   }
 
-  async findOne(id: string, selectObject: any = { __v: 0 }) {
+  async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const product = await this.productModel
       .findOne({ _id: id })
       .populate('category', { title: 1 })
@@ -79,7 +82,10 @@ export class ProductService {
     }
   }
 
-  async findOneWithUrl(url: string, selectObject: any = { __v: 0 }) {
+  async findOneWithUrl(
+    url: string,
+    selectObject: Record<string, 0 | 1> = { __v: 0 },
+  ) {
     const product = await this.productModel
       .findOne({ url: url })
       .populate('category', { title: 1 })
