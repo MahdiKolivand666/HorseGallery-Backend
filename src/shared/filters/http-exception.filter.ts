@@ -54,12 +54,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     // Log the error
-    if (status >= 500) {
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(
         `[${request.method}] ${request.url} - Status: ${status} - Message: ${JSON.stringify(message)}`,
         exception instanceof Error ? exception.stack : '',
       );
-    } else {
+    } else if (status >= HttpStatus.BAD_REQUEST) {
       this.logger.warn(
         `[${request.method}] ${request.url} - Status: ${status} - Message: ${JSON.stringify(message)}`,
       );
