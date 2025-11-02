@@ -29,7 +29,8 @@ export class TicketService {
       .skip(page - 1)
       .limit(limit)
       .populate('user', { firstName: 1, lastName: 1 })
-      .sort(sortObject.select(selectObject))
+      .select(selectObject)
+      .sort(sortObject)
       .exec();
 
     const count = await this.ticketModel.countDocuments(query);

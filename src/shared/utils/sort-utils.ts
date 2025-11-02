@@ -1,7 +1,7 @@
 import { Sort } from '../dtos/general-query.dto';
 
-export const sortFunction = (sort?: Sort) => {
-  let sortObject: any = {};
+export const sortFunction = (sort?: Sort): Record<string, 1 | -1> => {
+  let sortObject: Record<string, 1 | -1> = { createdAt: -1 };
 
   if (sort === Sort.Title) {
     sortObject = { title: 1 };
@@ -13,9 +13,6 @@ export const sortFunction = (sort?: Sort) => {
     sortObject = { price: 1 };
   } else if (sort === Sort.Expensive) {
     sortObject = { price: -1 };
-  } else {
-    // Default sort when no sort parameter is provided or invalid
-    sortObject = { createdAt: -1 };
   }
 
   return sortObject;

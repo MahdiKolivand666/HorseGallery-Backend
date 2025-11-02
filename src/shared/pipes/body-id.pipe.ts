@@ -9,7 +9,7 @@ import { isValidObjectId } from 'mongoose';
 @Injectable()
 export class BodyIdPipe implements PipeTransform {
   constructor(private readonly items: string[]) {}
-  transform(value: any, metadata: ArgumentMetadata) {
+  transform(value: Record<string, unknown>, metadata: ArgumentMetadata) {
     const errorItems: string[] = [];
     for (const item of this.items) {
       if (value[item]) {

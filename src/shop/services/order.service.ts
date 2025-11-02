@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -11,7 +12,7 @@ import { OrderItem } from '../schemas/order-item.schema';
 import { CreateOrderDto } from '../dtos/create-order.dto';
 import { CartService } from './cart.service';
 import { ShippingService } from './shipping.service';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { ProductService } from 'src/product/services/product.service';
 import { EditedBy } from 'src/product/schemas/inventory-record.schema';
 import { Product } from 'src/product/schemas/product.schema';
@@ -20,6 +21,8 @@ import { sortFunction } from 'src/shared/utils/sort-utils';
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @InjectModel(OrderItem.name)
@@ -107,21 +110,84 @@ export class OrderService {
   async checkOrder(id: string) {
     try {
       const order = await this.findOneOrder(id);
+      const merchantId = this.configService.get<string>('MERCHANT_ID');
+      const bankVerifyUrl = this.configService.get<string>('BANK_VERIFY_URL');
+
+      if (!bankVerifyUrl) {
+        this.logger.error('Bank verify URL is not configured');
+        throw new BadRequestException('آدرس درگاه بانکی تنظیم نشده است');
+      }
+
+      if (!merchantId) {
+        this.logger.error('Merchant ID is not configured');
+        throw new BadRequestException('شناسه پذیرنده تنظیم نشده است');
+      }
+
       const bankData = {
-        merchant_id: this.configService.get<string>('MERCHANT_ID'),
+        merchant_id: merchantId,
         amount: order.finalPrice * 10,
         authority: order.refId,
       };
 
-      const bankVerifyUrl = this.configService.get<string>('BANK_VERIFY_URL');
-      if (!bankVerifyUrl) {
-        throw new BadRequestException('آدرس درگاه بانکی تنظیم نشده است');
+      this.logger.log(
+        `Verifying payment for order ${id} with authority ${order.refId}`,
+      );
+
+      const response = await axios.post(bankVerifyUrl, bankData, {
+        timeout: 10000, // 10 second timeout
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response?.data?.data) {
+        this.logger.log(`Payment verified successfully for order ${id}`);
+        return response.data.data;
+      } else {
+        this.logger.warn(
+          `Invalid response from bank gateway for order ${id}: ${JSON.stringify(response?.data)}`,
+        );
+        throw new BadRequestException('پاسخ نامعتبر از درگاه بانکی');
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
       }
 
-      const response = await axios.post(bankVerifyUrl, bankData);
-      return response?.data?.data;
-    } catch (error) {
-      throw new BadRequestException('خطا در ارتباط با درگاه بانکی');
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+        if (axiosError.code === 'ECONNABORTED') {
+          this.logger.error(
+            `Payment verification timeout for order ${id}`,
+            axiosError.stack,
+          );
+          throw new BadRequestException(
+            'زمان اتصال به درگاه بانکی به پایان رسید. لطفاً دوباره تلاش کنید',
+          );
+        } else if (axiosError.response) {
+          this.logger.error(
+            `Bank gateway returned error for order ${id}: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`,
+            axiosError.stack,
+          );
+          throw new BadRequestException(
+            'خطای درگاه بانکی. لطفاً با پشتیبانی تماس بگیرید',
+          );
+        } else {
+          this.logger.error(
+            `Network error while verifying payment for order ${id}: ${axiosError.message}`,
+            axiosError.stack,
+          );
+          throw new BadRequestException(
+            'خطا در ارتباط با درگاه بانکی. لطفاً اتصال اینترنت خود را بررسی کنید',
+          );
+        }
+      }
+
+      this.logger.error(
+        `Unexpected error during payment verification for order ${id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new BadRequestException('خطای غیرمنتظره در تایید پرداخت');
     }
   }
 
@@ -131,21 +197,89 @@ export class OrderService {
       const serverUrl = this.configService.get<string>('SERVER_URL');
       const bankUrl = this.configService.get<string>('BANK_URL');
 
-      if (!merchantId || !serverUrl || !bankUrl) {
-        throw new BadRequestException('تنظیمات درگاه پرداخت کامل نیست');
+      if (!merchantId) {
+        this.logger.error('Merchant ID is not configured');
+        throw new BadRequestException('شناسه پذیرنده تنظیم نشده است');
+      }
+
+      if (!serverUrl) {
+        this.logger.error('Server URL is not configured');
+        throw new BadRequestException('آدرس سرور تنظیم نشده است');
+      }
+
+      if (!bankUrl) {
+        this.logger.error('Bank URL is not configured');
+        throw new BadRequestException('آدرس درگاه بانکی تنظیم نشده است');
       }
 
       const bankData = {
         merchant_id: merchantId,
         amount: finalPrice * 10,
         description: 'Gold Gallery Order',
-        callback_url: `${serverUrl}/site/order/callback`,
+        callback_url: `${serverUrl}/site-order/callback`,
       };
 
-      const response = await axios.post(bankUrl, bankData);
-      return response?.data?.data;
+      this.logger.log(
+        `Creating payment request for amount ${finalPrice} Toman`,
+      );
+
+      const response = await axios.post(bankUrl, bankData, {
+        timeout: 10000, // 10 second timeout
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response?.data?.data) {
+        this.logger.log(
+          `Payment request created successfully with authority: ${response.data.data.authority}`,
+        );
+        return response.data.data;
+      } else {
+        this.logger.warn(
+          `Invalid response from bank gateway: ${JSON.stringify(response?.data)}`,
+        );
+        throw new BadRequestException('پاسخ نامعتبر از درگاه بانکی');
+      }
     } catch (error) {
-      throw new BadRequestException('خطا در ایجاد درخواست پرداخت');
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+        if (axiosError.code === 'ECONNABORTED') {
+          this.logger.error(
+            `Payment request timeout for amount ${finalPrice}`,
+            axiosError.stack,
+          );
+          throw new BadRequestException(
+            'زمان اتصال به درگاه بانکی به پایان رسید. لطفاً دوباره تلاش کنید',
+          );
+        } else if (axiosError.response) {
+          this.logger.error(
+            `Bank gateway returned error: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`,
+            axiosError.stack,
+          );
+          throw new BadRequestException(
+            'خطای درگاه بانکی. لطفاً دوباره تلاش کنید',
+          );
+        } else {
+          this.logger.error(
+            `Network error while creating payment request: ${axiosError.message}`,
+            axiosError.stack,
+          );
+          throw new BadRequestException(
+            'خطا در ارتباط با درگاه بانکی. لطفاً اتصال اینترنت خود را بررسی کنید',
+          );
+        }
+      }
+
+      this.logger.error(
+        `Unexpected error during payment request creation`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new BadRequestException('خطای غیرمنتظره در ایجاد درخواست پرداخت');
     }
   }
 
