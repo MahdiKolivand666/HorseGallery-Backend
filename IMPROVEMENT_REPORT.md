@@ -330,7 +330,7 @@ app.enableCors(); // ❌ خیلی open است
 
 ```typescript
 app.enableCors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:4000',
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -674,7 +674,7 @@ const config = new DocumentBuilder()
   .build();
 
 app.enableCors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:4000',
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -768,7 +768,7 @@ MONGODB_URI=mongodb://localhost:27017/horsegallery
 # Server
 PORT=4001
 SERVER_URL=http://localhost:4001
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:4000
 
 # Payment Gateway
 MERCHANT_ID=your-merchant-id

@@ -46,7 +46,7 @@ export class SiteOrderController {
     @Res() response: Response,
   ) {
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4000';
 
     if (query.authority) {
       const order = await this.orderService.findOrderByRefId(query.authority);

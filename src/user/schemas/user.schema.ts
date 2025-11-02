@@ -22,8 +22,20 @@ export class User extends Document {
   @Prop()
   role: Role;
 
-  @Prop()
-  code: string;
+  @Prop({ required: false })
+  code?: string;
+
+  @Prop({ required: false })
+  codeExpiry?: Date;
+
+  @Prop({ default: 0 })
+  codeAttempts: number;
+
+  @Prop({ required: false })
+  lastCodeSentAt?: Date;
+
+  @Prop({ default: 0 })
+  codeSentCount: number;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

@@ -14,12 +14,16 @@ import { AuthDto } from '../dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfirmDto } from '../dtos/confirm.dto';
+import { SmsService } from 'src/shared/services/sms.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly jwtService: JwtService,
+    private readonly smsService: SmsService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(
@@ -107,27 +111,120 @@ export class UserService {
     const { mobile, code } = body;
     const user = await this.findOneByMobile(mobile);
 
+    // Check if code exists
+    if (!user.code) {
+      throw new BadRequestException(
+        'کد تایید یافت نشد. لطفاً مجدد درخواست کنید',
+      );
+    }
+
+    // Check if code is expired
+    if (user.codeExpiry && new Date() > user.codeExpiry) {
+      throw new BadRequestException('کد تایید منقضی شده است');
+    }
+
+    // Check code attempts limit
+    if (user.codeAttempts >= 3) {
+      throw new BadRequestException(
+        'تعداد تلاش‌های اشتباه بیش از حد مجاز. لطفاً کد جدید درخواست کنید',
+      );
+    }
+
+    // Verify code
     const isCodeCorrect = await bcrypt.compare(code, user.code);
 
     if (!isCodeCorrect) {
-      throw new BadRequestException('کد اشتباه است');
-    } else {
-      const payload = { _id: user._id, role: user.role };
-      const token = this.jwtService.sign(payload);
-      return { token };
+      // Increment failed attempts
+      user.codeAttempts += 1;
+      await user.save();
+
+      throw new BadRequestException(
+        `کد اشتباه است. ${3 - user.codeAttempts} تلاش باقی مانده`,
+      );
     }
+
+    // Code is correct - generate JWT token
+    const payload = { _id: user._id, role: user.role };
+    const token = this.jwtService.sign(payload);
+
+    // Clear verification code data
+    user.code = undefined;
+    user.codeExpiry = undefined;
+    user.codeAttempts = 0;
+    await user.save();
+
+    return {
+      access_token: token,
+      user: {
+        _id: user._id,
+        mobile: user.mobile,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+    };
   }
 
   async sendCode(mobile: string) {
     const user = await this.findOneByMobile(mobile);
-    const code = Math.floor(Math.random() * 900000) + 100000;
-    const salt = await bcrypt.genSalt();
-    const hashedCode = await bcrypt.hash(code.toString(), salt);
 
+    // Rate limiting: Check if user sent too many codes
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Reset counter if last code was sent more than 1 hour ago
+    if (!user.lastCodeSentAt || user.lastCodeSentAt < oneHourAgo) {
+      user.codeSentCount = 0;
+    }
+
+    // Check rate limit (max 3 codes per hour)
+    if (user.codeSentCount >= 3) {
+      throw new BadRequestException(
+        'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً یک ساعت دیگر تلاش کنید',
+      );
+    }
+
+    // Check if user sent code recently (wait at least 60 seconds)
+    if (user.lastCodeSentAt) {
+      const secondsSinceLastCode =
+        (now.getTime() - user.lastCodeSentAt.getTime()) / 1000;
+
+      if (secondsSinceLastCode < 60) {
+        const waitTime = Math.ceil(60 - secondsSinceLastCode);
+        throw new BadRequestException(`لطفاً ${waitTime} ثانیه دیگر صبر کنید`);
+      }
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Hash the code for storage
+    const salt = await bcrypt.genSalt();
+    const hashedCode = await bcrypt.hash(code, salt);
+
+    // Set code expiry (2 minutes)
+    const codeExpiry = new Date(now.getTime() + 2 * 60 * 1000);
+
+    // Update user
     user.code = hashedCode;
+    user.codeExpiry = codeExpiry;
+    user.codeAttempts = 0;
+    user.lastCodeSentAt = now;
+    user.codeSentCount += 1;
     await user.save();
 
-    // Note: In production, verification code should be sent via SMS/Email
-    // Do not log the code for security reasons
+    // Send SMS
+    const smsSent = await this.smsService.sendVerificationCode(mobile, code);
+
+    if (!smsSent) {
+      throw new BadRequestException(
+        'خطا در ارسال پیامک. لطفاً دوباره تلاش کنید',
+      );
+    }
+
+    return {
+      message: 'کد تایید با موفقیت ارسال شد',
+      expiresIn: '2 دقیقه',
+    };
   }
 }
