@@ -3,6 +3,7 @@ import * as mkdirp from 'mkdirp';
 import { uploadFilesDto } from '../dtos/upload-files.dto';
 import { UploadFileDto } from '../dtos/upload-file.dto';
 import * as fs from 'fs';
+import { Logger } from '@nestjs/common';
 
 export const saveImages = async (
   files: Array<Express.Multer.File>,
@@ -35,6 +36,8 @@ export const saveImages = async (
   return fileNames;
 };
 
+const logger = new Logger('FileUtils');
+
 export const deleteImages = async (fileName: string, folder: string) => {
   const imagePath = 'files/' + folder;
 
@@ -43,7 +46,7 @@ export const deleteImages = async (fileName: string, folder: string) => {
     await fs.promises.unlink(`${imagePath}/resized/${fileName}`);
     return { success: true, message: 'Images deleted successfully' };
   } catch (error) {
-    console.log('Error deleting images:', error);
+    logger.error(`Error deleting images: ${error.message}`, error.stack);
     throw new Error(`Failed to delete images: ${error.message}`);
   }
 };

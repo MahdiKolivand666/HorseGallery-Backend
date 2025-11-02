@@ -4,19 +4,24 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { IdPipe } from './shared/pipes/id.pipe';
 import { DuplicateFilter } from './shared/filters/duplicate.filter';
-// import { LogFilter } from './shared/fiters/log.filter';
-// import { ApiKeyGuard } from './shared/guards/api-key.guard';
 import helmet from 'helmet';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const csrf = require('als-csrf');
 
 async function bootstrap() {
-  // inja app ro ijad mikone
+  // Create NestJS application instance
   const app = await NestFactory.create(AppModule);
-  // helmet ye middlware amniyati hastesh k header haye http ro tanzim mikone ta dar barabare hamlehaye xxs va click jacking moghavemtar bashe
+
+  // Helmet middleware configures HTTP headers for security against XSS and click-jacking attacks
   app.use(helmet());
-  // app.use(csrf()); // Temporarily disabled for testing
-  app.enableCors();
+
+  // Enable CORS with proper configuration
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  // Global validation pipe for request validation
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -26,20 +31,23 @@ async function bootstrap() {
     }),
   );
 
-  // idpipe ye pipe sefareshi hastesh k validationhaye objectid ro toye mongo anjam mide
+  // IdPipe validates MongoDB ObjectId format
   app.useGlobalPipes(new IdPipe());
+
+  // DuplicateFilter handles MongoDB duplicate key errors
   app.useGlobalFilters(new DuplicateFilter());
 
-  // app.useGlobalGuards(new ApiKeyGuard());
-
-  // Swagger configuration
+  // Swagger API documentation configuration
   const config = new DocumentBuilder()
-    .setTitle('Nest App')
+    .setTitle('Gold Gallery API')
+    .setDescription('Backend API for Gold Gallery E-commerce Platform')
+    .setVersion('1.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('/documentation', app, document);
-  // server roye port 4001 ejra mishe
+
+  // Start server on port 4001
   await app.listen(4001);
 }
 bootstrap();

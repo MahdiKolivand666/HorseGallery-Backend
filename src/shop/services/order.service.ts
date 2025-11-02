@@ -101,27 +101,34 @@ export class OrderService {
   }
 
   async checkOrder(id: string) {
-    const order = await this.findOneOrder(id);
-    const bankData = {
-      merchant_id: process.env.MERCHANT_ID,
-      amount: order.finalPrice * 10,
-      authority: order.refId,
-    };
+    try {
+      const order = await this.findOneOrder(id);
+      const bankData = {
+        merchant_id: process.env.MERCHANT_ID,
+        amount: order.finalPrice * 10,
+        authority: order.refId,
+      };
 
-    const response = await axios.post(process.env.BANK_VERIFY_URL!, bankData);
-    return response?.data?.data;
+      const response = await axios.post(process.env.BANK_VERIFY_URL!, bankData);
+      return response?.data?.data;
+    } catch (error) {
+      throw new BadRequestException('Error connecting to bank gateway');
+    }
   }
 
   async createPaymentRequest(finalPrice: number) {
-    const bankData = {
-      merchant_id: process.env.MERCHANT_ID,
-      amount: finalPrice * 10,
-      description: 'توضیحات سفارش',
-      callback_url: `${process.env.SERVER_URL}/site/order/callback`,
-    };
+    try {
+      const bankData = {
+        merchant_id: process.env.MERCHANT_ID,
+        amount: finalPrice * 10,
+        description: 'Gold Gallery Order',
+        callback_url: `${process.env.SERVER_URL}/site/order/callback`,
+      };
 
-    const response = await axios.post(process.env.BANK_URL!, bankData);
-
-    return response?.data?.data;
+      const response = await axios.post(process.env.BANK_URL!, bankData);
+      return response?.data?.data;
+    } catch (error) {
+      throw new BadRequestException('Error creating payment request');
+    }
   }
 }

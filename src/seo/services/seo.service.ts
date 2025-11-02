@@ -49,8 +49,6 @@ export class SeoService {
   }
 
   async findOneWithUrl(url: string, selectObject = {}) {
-    console.log(url);
-
     const seo = await this.seoModel
       .findOne({ url: url })
       .select(selectObject)

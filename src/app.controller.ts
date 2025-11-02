@@ -1,19 +1,12 @@
-// این کنترلر سه بخش داره:
-
-// 📤 آپلود یک فایل با محدودیت حجم و نوع.
-
-// 📂 آپلود چند فایل با اعتبارسنجی از طریق Pipe.
-
-// ❌ حذف فایل از روی سرور.
-
-// steps = [
-//     ("Client", "کاربر فایل یا چند فایل رو می‌فرسته"),
-//     ("Controller", "AppController متد مربوطه رو صدا می‌زنه"),
-//     ("Interceptor", "FileInterceptor / FilesInterceptor فایل رو می‌گیره"),
-//     ("Pipe", "ParseFilePipe یا ImagesPipe → اعتبارسنجی (حجم، نوع فایل)"),
-//     ("Service/Utils", "saveImage / saveImages → ذخیره روی سرور"),
-//     ("Response", "جواب به کاربر برمی‌گرده (موفق/خطا)")
-// ]
+// AppController handles three main file operations:
+// 1. Upload a single file with size and type validation
+// 2. Upload multiple files with validation through Pipe
+// 3. Delete a file from the server
+//
+// Request flow:
+// Client → Controller → Interceptor (FileInterceptor/FilesInterceptor)
+// → Pipe (ParseFilePipe/ImagesPipe for validation) → Service/Utils (saveImage/saveImages)
+// → Response (success/error)
 
 import {
   Body,
@@ -38,25 +31,24 @@ import { DeleteFileDto } from './shared/dtos/delete-file.dto';
 import { ImagesPipe } from './shared/pipes/images.pipe';
 import { JwtGuard } from './shared/guards/jwt.guard';
 
-// baraye mostanad sazi swagger k address ro neshon mide k shared ro neshon mide
-
+// Swagger documentation tag for shared endpoints
 @ApiTags('shared')
 @Controller()
-// user guards roye hameye gauardha faal mishe va har user ba user pass va token motabar faghat mitune login kone
+// JWT Guard is active on all endpoints - users need valid token to access
 @UseGuards(JwtGuard)
-// b swagger mige in controller niyaz b brearer token dare hamon JwtGuard.
+// Swagger documentation indicates this controller requires Bearer token
 @ApiBearerAuth()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  // address api post mishe upload file
+  // POST endpoint for uploading a single file
   @Post('upload-file')
-  // api consume moshakhas mikone k api file daryaft mikone
+  // Indicates the API consumes multipart/form-data
   @ApiConsumes('multipart/form-data')
-  // useintercoptor ba komake multer file ro migire
+  // FileInterceptor uses multer to handle file upload
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
-    // file upoladi dar nazar gerefte mishe
+    // Validates and receives the uploaded file
     @UploadedFile(
       new ParseFilePipe({
         validators: [
@@ -91,40 +83,4 @@ export class AppController {
     }
     return deleteImages(body.fileName, body.folder);
   }
-
-  // @Delete('delete-image')
-  // @ApiOperation({ summary: 'Delete an image' })
-  // @ApiQuery({
-  //   name: 'fileName',
-  //   description: 'Name of the file to delete',
-  //   required: true,
-  //   type: String,
-  // })
-  // @ApiQuery({
-  //   name: 'folder',
-  //   description: 'Folder where the image is stored',
-  //   required: true,
-  //   type: String,
-  // })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Image deleted successfully',
-  //   schema: {
-  //     type: 'object',
-  //     properties: {
-  //       success: { type: 'boolean', example: true },
-  //       message: { type: 'string', example: 'Images deleted successfully' },
-  //     },
-  //   },
-  // })
-  // async deleteImage(
-  //   @Query('fileName') fileName: string,
-  //   @Query('folder') folder: string,
-  // ) {
-  //   try {
-  //     return await deleteImages(fileName, folder);
-  //   } catch (error) {
-  //     throw new Error(`Failed to delete image: ${error.message}`);
-  //   }
-  // }
 }

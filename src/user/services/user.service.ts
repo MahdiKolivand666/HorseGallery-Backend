@@ -124,6 +124,7 @@ export class UserService {
     user.code = hashedCode;
     await user.save();
 
-    console.log(code);
+    // Note: In production, verification code should be sent via SMS/Email
+    // Do not log the code for security reasons
   }
 }

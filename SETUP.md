@@ -61,6 +61,7 @@ npm run start
    ```
 
 در صفحه Swagger می‌توانید:
+
 - تمام APIهای موجود را ببینید
 - مستندات کامل هر API را مشاهده کنید
 - APIها را مستقیماً تست کنید
@@ -69,12 +70,14 @@ npm run start
 ## لیست APIهای موجود
 
 ### 🔐 Authentication (عمومی - بدون نیاز به token)
+
 - `POST /auth/sign-in` - ورود کاربر
 - `POST /auth/sign-up` - ثبت‌نام کاربر
 - `POST /auth/confirm` - تایید کد
 - `POST /auth/resend` - ارسال مجدد کد
 
 ### 👤 User (نیاز به JWT + نقش Admin)
+
 - `GET /user` - لیست کاربران
 - `POST /user` - ایجاد کاربر جدید
 - `GET /user/:id` - جزئیات یک کاربر
@@ -82,6 +85,7 @@ npm run start
 - `DELETE /user/:id` - حذف کاربر
 
 ### 📝 Panel (نیاز به JWT)
+
 - `GET /panel/address` - لیست آدرس‌های کاربر
 - `POST /panel/address` - افزودن آدرس
 - `GET /panel/address/:id` - جزئیات آدرس
@@ -91,6 +95,7 @@ npm run start
 - `PATCH /panel/change-password` - تغییر رمز عبور
 
 ### 📰 Blog (نیاز به JWT + نقش Admin/CopyWriter)
+
 - `GET /blog` - لیست مقالات
 - `POST /blog` - ایجاد مقاله جدید
 - `GET /blog/:id` - جزئیات مقاله
@@ -98,6 +103,7 @@ npm run start
 - `DELETE /blog/:id` - حذف مقاله
 
 ### 📂 Blog Category (نیاز به JWT + نقش Admin/CopyWriter)
+
 - `GET /blog-category` - لیست دسته‌بندی‌های مقاله
 - `POST /blog-category` - ایجاد دسته‌بندی جدید
 - `GET /blog-category/:id` - جزئیات دسته‌بندی
@@ -105,11 +111,13 @@ npm run start
 - `DELETE /blog-category/:id` - حذف دسته‌بندی
 
 ### 🌐 Public Blog (عمومی - بدون نیاز به token)
+
 - `GET /site/blog/categories` - لیست دسته‌بندی‌ها
 - `GET /site/blog/categories/:url` - مقالات یک دسته‌بندی
 - `GET /site/blog/:url` - نمایش مقاله با URL
 
 ### 🛍️ Product (نیاز به JWT + نقش Admin/CopyWriter)
+
 - `GET /product` - لیست محصولات
 - `POST /product` - ایجاد محصول جدید
 - `GET /product/:id` - جزئیات محصول
@@ -120,6 +128,7 @@ npm run start
 - `GET /product/inventory-record` - لیست رکوردهای موجودی
 
 ### 📁 Product Category (نیاز به JWT + نقش Admin/CopyWriter)
+
 - `GET /product-category` - لیست دسته‌بندی‌های محصول
 - `POST /product-category` - ایجاد دسته‌بندی جدید
 - `GET /product-category/:id` - جزئیات دسته‌بندی
@@ -127,10 +136,12 @@ npm run start
 - `DELETE /product-category/:id` - حذف دسته‌بندی
 
 ### 🌐 Public Product (عمومی)
+
 - `GET /site/product` - لیست محصولات
 - `GET /site/product/:url` - جزئیات محصول
 
 ### 🎫 Ticket (نیاز به JWT + نقش Admin)
+
 - `GET /ticket` - لیست تیکت‌ها
 - `POST /ticket` - ایجاد تیکت جدید
 - `GET /ticket/:id` - جزئیات تیکت
@@ -138,27 +149,32 @@ npm run start
 - `DELETE /ticket/:id` - حذف تیکت
 
 ### 🎫 Panel Ticket (نیاز به JWT)
+
 - `GET /panel/ticket` - تیکت‌های کاربر
 - `POST /panel/ticket` - ایجاد تیکت
 - `GET /panel/ticket/:id` - جزئیات تیکت
 - `PATCH /panel/ticket/:id` - پاسخ به تیکت
 
 ### 🛒 Cart (نیاز به JWT)
+
 - `GET /cart` - مشاهده سبد خرید
 - `POST /cart` - افزودن به سبد خرید
 - `PATCH /cart` - به‌روزرسانی سبد خرید
 - `DELETE /cart` - حذف از سبد خرید
 
 ### 📦 Order (نیاز به JWT)
+
 - `GET /order` - لیست سفارش‌ها
 - `POST /order` - ایجاد سفارش
 - `GET /order/:id` - جزئیات سفارش
 
 ### 🌐 Public Order (عمومی)
+
 - `POST /site/order` - ایجاد سفارش
 - `GET /site/order/callback` - کال‌بک پرداخت
 
 ### 🚚 Shipping (نیاز به JWT + نقش Admin)
+
 - `GET /shipping` - لیست روش‌های ارسال
 - `POST /shipping` - ایجاد روش ارسال
 - `GET /shipping/:id` - جزئیات روش ارسال
@@ -166,9 +182,11 @@ npm run start
 - `DELETE /shipping/:id` - حذف روش ارسال
 
 ### 🌐 Public Shipping (عمومی)
+
 - `GET /site/shipping` - لیست روش‌های ارسال
 
 ### 🔍 SEO (نیاز به JWT + نقش Admin/CopyWriter)
+
 - `GET /seo` - لیست تنظیمات SEO
 - `POST /seo` - ایجاد تنظیمات SEO
 - `GET /seo/:id` - جزئیات SEO
@@ -176,9 +194,11 @@ npm run start
 - `DELETE /seo/:id` - حذف SEO
 
 ### 🌐 Public SEO (عمومی)
+
 - `GET /site/seo/:url` - دریافت SEO با URL
 
 ### 📤 Shared (نیاز به JWT)
+
 - `POST /upload-file` - آپلود یک فایل
 - `POST /upload-files` - آپلود چند فایل
 - `DELETE /delete-file` - حذف فایل
@@ -186,11 +206,13 @@ npm run start
 ## دسترسی به فایل‌های استاتیک
 
 فایل‌های آپلود شده از طریق آدرس زیر قابل دسترسی هستند:
+
 ```
 http://localhost:3002/files/[folder]/[filename]
 ```
 
 مثال:
+
 ```
 http://localhost:3002/files/blog/main/image.webp
 http://localhost:3002/files/product/resized/product.webp
@@ -202,11 +224,12 @@ http://localhost:3002/files/product/resized/product.webp
 2. **JWT Authentication**: اکثر APIها نیاز به Bearer Token دارند
 3. **Role-based Access**: برخی APIها فقط برای Admin یا CopyWriter قابل دسترسی است
 4. **Validation**: تمام درخواست‌ها اعتبارسنجی می‌شوند
-5. **Database**: MongoDB باید روی `localhost:27017` و دیتابیس `nest-app` باشد
+5. **Database**: MongoDB باید روی `localhost:27017` و دیتابیس `horsegallery` باشد
 
 ## عیب‌یابی
 
 ### خطای اتصال به MongoDB
+
 ```bash
 # بررسی اینکه MongoDB در حال اجرا است:
 pgrep mongod
@@ -218,10 +241,12 @@ mongod
 ```
 
 ### خطای پورت در حال استفاده
+
 اگر پورت 3002 اشغال است:
+
 - فایل `src/main.ts` را باز کنید
 - شماره پورت را تغییر دهید (خط 43)
 
 ### خطای JWT_SECRET
-مطمئن شوید که متغیر `JWT_SECRET` در فایل `.env` تنظیم شده است.
 
+مطمئن شوید که متغیر `JWT_SECRET` در فایل `.env` تنظیم شده است.

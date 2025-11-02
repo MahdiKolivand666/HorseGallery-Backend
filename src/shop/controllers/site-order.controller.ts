@@ -1,8 +1,17 @@
-import { Body, Controller, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { OrderService } from '../services/order.service';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreateOrderDto } from '../dtos/create-order.dto';
+import { PaymentCallbackDto } from '../dtos/payment-callback.dto';
 import { User } from 'src/shared/decorators/user.decorator';
 import { BodyIdPipe } from 'src/shared/pipes/body-id.pipe';
 import type { Response } from 'express';
@@ -11,15 +20,16 @@ import { Types } from 'mongoose';
 import { CartService } from '../services/cart.service';
 
 @ApiTags('Site Order')
-@ApiBearerAuth()
-@UseGuards(JwtGuard)
 @Controller('site-order')
 export class SiteOrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly cartService: CartService,
   ) {}
+
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtGuard)
   createOrder(
     @Body(new BodyIdPipe(['cartId', 'addressId', 'shippingId']))
     body: CreateOrderDto,
@@ -28,7 +38,11 @@ export class SiteOrderController {
     return this.orderService.createOrder(body, user);
   }
 
-  async callback(@Query() query: any, @Res() response: Response) {
+  @Get('callback')
+  async callback(
+    @Query() query: PaymentCallbackDto,
+    @Res() response: Response,
+  ) {
     if (query.authority) {
       const order = await this.orderService.findOrderByRefId(query.authority);
 
@@ -36,18 +50,23 @@ export class SiteOrderController {
         (order._id as Types.ObjectId).toString(),
       );
 
+      const orderId = (order._id as Types.ObjectId).toString();
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
       if (bankResponse.status === 101) {
         order.status = OrderStatus.Paid;
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         await this.cartService.removeCartAndItems(order.cart.toString());
+        await order.save();
+        return response.redirect(`${frontendUrl}/order/success?id=${orderId}`);
       } else {
         order.status = OrderStatus.Canceled;
+        await order.save();
+        return response.redirect(`${frontendUrl}/order/failed?id=${orderId}`);
       }
-
-      await order.save();
-      return response.redirect('');
     } else {
-      response.redirect('');
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return response.redirect(`${frontendUrl}/order/failed`);
     }
   }
 }

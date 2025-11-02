@@ -9,7 +9,7 @@ import {
 export class FarsiPipe implements PipeTransform {
   transform(value: any, metadata: ArgumentMetadata) {
     const items: string[] = ['firstName', 'lastName'];
-    const errrors: string[] = [];
+    const errors: string[] = [];
     const farsi = /^[\u0600-\u06FF\s]{2,}$/;
 
     for (const key in value) {
@@ -17,13 +17,13 @@ export class FarsiPipe implements PipeTransform {
         const isFarsi = farsi.test(value[key]);
 
         if (!isFarsi) {
-          errrors.push(`${key} را فارسی وارد نمایید`);
+          errors.push(`${key} را فارسی وارد نمایید`);
         }
       }
     }
 
-    if (errrors.length) {
-      throw new BadRequestException(errrors);
+    if (errors.length) {
+      throw new BadRequestException(errors);
     }
     return value;
   }
