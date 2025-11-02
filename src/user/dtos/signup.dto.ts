@@ -1,19 +1,19 @@
 import { IsNotEmpty, IsString } from 'class-validator';
 
 export class SignUpDto {
-  @IsNotEmpty()
-  @IsString()
+  @IsNotEmpty({ message: 'نام الزامی است' })
+  @IsString({ message: 'نام باید رشته باشد' })
   firstName: string;
 
-  @IsNotEmpty()
-  @IsString()
+  @IsNotEmpty({ message: 'نام خانوادگی الزامی است' })
+  @IsString({ message: 'نام خانوادگی باید رشته باشد' })
   lastName: string;
 
-  @IsNotEmpty()
-  @IsString()
+  @IsNotEmpty({ message: 'شماره موبایل الزامی است' })
+  @IsString({ message: 'شماره موبایل باید رشته باشد' })
   mobile: string;
 
-  @IsNotEmpty()
-  @IsString()
+  @IsNotEmpty({ message: 'رمز عبور الزامی است' })
+  @IsString({ message: 'رمز عبور باید رشته باشد' })
   password: string;
 }

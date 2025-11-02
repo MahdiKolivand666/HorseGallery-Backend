@@ -15,7 +15,6 @@ import { ShippingService } from './shipping.service';
 import axios, { AxiosError } from 'axios';
 import { ProductService } from 'src/product/services/product.service';
 import { EditedBy } from 'src/product/schemas/inventory-record.schema';
-import { Product } from 'src/product/schemas/product.schema';
 import { OrderQueryDto } from '../dtos/order-query.dto';
 import { sortFunction } from 'src/shared/utils/sort-utils';
 
@@ -35,12 +34,57 @@ export class OrderService {
 
   async createOrder(body: CreateOrderDto, user: string) {
     const { cartId, addressId, shippingId } = body;
+
+    // Generate idempotency key based on user and cart (without timestamp)
+    const idempotencyKey = `order_${user}_${cartId}`;
+
+    // Check if there's already a pending/paying order for this user and cart
+    const existingOrder = await this.orderModel.findOne({
+      user: user,
+      cart: cartId,
+      status: OrderStatus.Paying,
+    });
+
+    if (existingOrder) {
+      this.logger.warn(
+        `Duplicate order attempt detected for user ${user}, cart ${cartId}`,
+      );
+
+      // Check if existing order is recent (within last 15 minutes)
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      if (
+        existingOrder.lastPaymentAttemptAt &&
+        existingOrder.lastPaymentAttemptAt > fifteenMinutesAgo
+      ) {
+        // Return existing order's refId
+        return existingOrder.refId;
+      } else {
+        // Old order, allow retry but increment attempts
+        existingOrder.paymentAttempts =
+          (existingOrder.paymentAttempts || 0) + 1;
+        existingOrder.lastPaymentAttemptAt = new Date();
+
+        if (existingOrder.paymentAttempts > 5) {
+          this.logger.error(
+            `Payment attempts exceeded for user ${user}, cart ${cartId}`,
+          );
+          throw new BadRequestException(
+            'تعداد تلاش‌های پرداخت بیش از حد مجاز است. لطفاً با پشتیبانی تماس بگیرید',
+          );
+        }
+
+        await existingOrder.save();
+        return existingOrder.refId;
+      }
+    }
+
     const cart = await this.cartService.getCartDetails(cartId);
     const shipping = await this.shippingService.findOne(shippingId);
     const shippingPrice =
       cart.prices.totalWithDiscount < shipping.freeShippingThreshold
         ? shipping.price
         : 0;
+
     const order = new this.orderModel({
       user: user,
       shipping: shippingId,
@@ -50,6 +94,9 @@ export class OrderService {
       totalWithoutDiscount: cart.prices.totalWithoutDiscount,
       shippingPrice: shippingPrice,
       finalPrice: cart.prices.totalWithDiscount + shippingPrice,
+      idempotencyKey: idempotencyKey,
+      paymentAttempts: 1,
+      lastPaymentAttemptAt: new Date(),
     });
 
     const bankResponse = await this.createPaymentRequest(order.finalPrice);
@@ -83,6 +130,11 @@ export class OrderService {
         );
       }
       await order.save();
+
+      this.logger.log(
+        `Order created successfully: ${(order._id as Types.ObjectId).toString()}, authority: ${order.refId}`,
+      );
+
       return order.refId;
     } else {
       throw new BadRequestException('خطا در ایجاد درخواست پرداخت');

@@ -144,26 +144,82 @@ export class ProductService {
     editedBy: EditedBy,
     order: string | null = null,
   ) {
-    const product = await this.findOne(id);
-    const oldStock = product.stock || 0;
-    if (oldStock === 0) {
-      throw new BadRequestException(
-        `تعداد محصول ${product?.title} کمتر از 0 است`,
-      );
+    // Optimistic locking with retries
+    const maxRetries = 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      try {
+        const product = await this.productModel.findById(id);
+
+        if (!product) {
+          throw new NotFoundException('محصول یافت نشد');
+        }
+
+        const oldStock = product.stock || 0;
+        const oldVersion = product.version || 1;
+
+        if (oldStock === 0) {
+          throw new BadRequestException(
+            `تعداد محصول ${product?.title} کمتر از 0 است`,
+          );
+        }
+
+        if (oldStock < quantity) {
+          throw new BadRequestException(
+            `موجودی کافی نیست. موجودی فعلی: ${oldStock}`,
+          );
+        }
+
+        // Use findOneAndUpdate with version check for atomic operation
+        const updatedProduct = await this.productModel.findOneAndUpdate(
+          { _id: id, version: oldVersion },
+          {
+            $inc: { stock: -quantity, version: 1 },
+          },
+          { new: true },
+        );
+
+        if (!updatedProduct) {
+          // Version mismatch - someone else updated the product
+          retries++;
+          if (retries >= maxRetries) {
+            throw new BadRequestException(
+              'خطا در به‌روزرسانی موجودی. لطفاً دوباره تلاش کنید',
+            );
+          }
+          // Wait a bit before retrying
+          await new Promise((resolve) => setTimeout(resolve, 100 * retries));
+          continue;
+        }
+
+        // Record the inventory change
+        await this.inventoryRecordService.createRecord({
+          action: Action.Remove,
+          quantity: quantity,
+          editedBy: editedBy,
+          product: id,
+          order: order ?? undefined,
+        });
+
+        return updatedProduct;
+      } catch (error) {
+        if (
+          error instanceof BadRequestException ||
+          error instanceof NotFoundException
+        ) {
+          throw error;
+        }
+        retries++;
+        if (retries >= maxRetries) {
+          throw error;
+        }
+      }
     }
-    if (oldStock < quantity) {
-      throw new BadRequestException('موجودی کافی نیست');
-    }
-    product.stock = oldStock - quantity;
-    await product.save();
-    await this.inventoryRecordService.createRecord({
-      action: Action.Remove,
-      quantity: quantity,
-      editedBy: editedBy,
-      product: id,
-      order: order ?? undefined,
-    });
-    return product;
+
+    throw new BadRequestException(
+      'خطا در به‌روزرسانی موجودی بعد از چندین تلاش',
+    );
   }
   async delete(id: string) {
     const product = await this.findOne(id);

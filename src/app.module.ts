@@ -16,7 +16,9 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LogFilter } from './shared/filters/log.filter';
+import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { Log, LogSchema } from './shared/schemas/log.schema';
+import { AuditLog, auditLogSchema } from './shared/schemas/audit-log.schema';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LogInterceptor } from './shared/interceptors/log.interceptor';
 import { TimeMiddleware } from './shared/middleware/time.middleware';
@@ -27,6 +29,7 @@ import { SeoModule } from './seo/seo.module';
 import { ProductModule } from './product/product.module';
 import { TicketModule } from './ticket/ticket.module';
 import { ShopModule } from './shop/shop.module';
+import { AuditLogService } from './shared/services/audit-log.service';
 
 @Module({
   imports: [
@@ -60,7 +63,10 @@ import { ShopModule } from './shop/shop.module';
       rootPath: join(__dirname, '..', 'files'),
       serveRoot: '/files',
     }),
-    MongooseModule.forFeature([{ name: Log.name, schema: LogSchema }]),
+    MongooseModule.forFeature([
+      { name: Log.name, schema: LogSchema },
+      { name: AuditLog.name, schema: auditLogSchema },
+    ]),
     UserModule,
     SeoModule,
     ProductModule,
@@ -70,6 +76,11 @@ import { ShopModule } from './shop/shop.module';
   controllers: [AppController],
   providers: [
     AppService,
+    AuditLogService,
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
     {
       provide: APP_FILTER,
       useClass: LogFilter,
@@ -83,6 +94,7 @@ import { ShopModule } from './shop/shop.module';
       useClass: ThrottlerGuard,
     },
   ],
+  exports: [AuditLogService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

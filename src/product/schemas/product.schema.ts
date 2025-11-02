@@ -1,74 +1,84 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 import { ProductCategory } from './product-category.schema';
+
+export enum ProductType {
+  Ring = 'ring',
+  Necklace = 'necklace',
+  Bracelet = 'bracelet',
+  Earring = 'earring',
+  Coin = 'coin',
+  Bar = 'bar',
+  Other = 'other',
+}
+
+export enum MaterialType {
+  Gold = 'gold',
+  Silver = 'silver',
+  Platinum = 'platinum',
+  Diamond = 'diamond',
+  Gemstone = 'gemstone',
+  Mixed = 'mixed',
+}
 
 @Schema({ timestamps: true })
 export class Product extends Document {
-  @Prop()
+  @Prop({ required: true })
   title: string;
 
-  @Prop()
-  content: string;
+  @Prop({ required: true })
+  url: string;
+
+  @Prop({ required: true })
+  price: number;
+
+  @Prop({ default: 0 })
+  discount: number;
+
+  @Prop({ default: 0 })
+  stock: number;
+
+  @Prop({ default: 1 })
+  version: number;
+
+  @Prop({ required: true })
+  description: string;
 
   @Prop()
   images: string[];
 
-  @Prop()
-  thumbnail: string;
-
-  @Prop()
-  price: number;
-
-  @Prop()
-  discount: number;
-
-  @Prop({
-    type: Types.ObjectId,
-    ref: ProductCategory.name,
-    required: true,
-  })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'ProductCategory' })
   category: ProductCategory;
 
-  @Prop({
-    required: false,
+  // Gold/Jewelry specific fields
+  @Prop()
+  weight?: number;
 
-    default: 0,
-  })
-  stock: number;
+  @Prop()
+  karat?: number;
 
-  @Prop({
-    required: true,
-    unique: true,
-    type: String,
-  })
-  url: string;
+  @Prop({ enum: ProductType })
+  type?: ProductType;
 
-  @Prop({ required: false })
-  weight: number; // Weight in grams
+  @Prop({ enum: MaterialType })
+  material?: MaterialType;
 
-  @Prop({ required: false })
-  karat: number; // Karat (18, 21, 24)
-
-  @Prop({
-    required: false,
-    enum: ['دستبند', 'گردنبند', 'انگشتر', 'گوشواره', 'پابند', 'سایر'],
-  })
-  type: string; // Jewelry type
-
-  @Prop({
-    required: false,
-    enum: ['طلای زرد', 'طلای سفید', 'طلای رزگلد'],
-  })
-  material: string; // Gold type
-
-  @Prop({ required: false })
-  dimensions: string; // Dimensions
+  @Prop()
+  dimensions?: string;
 
   @Prop({ default: false })
-  hasCertificate: boolean; // Has authenticity certificate
+  hasCertificate?: boolean;
 
-  @Prop({ required: false })
-  certificateNumber: string; // Certificate number
+  @Prop()
+  certificateNumber?: string;
 }
 
 export const productSchema = SchemaFactory.createForClass(Product);
+
+// Optimistic locking
+productSchema.pre('save', function (next) {
+  if (this.isModified('stock')) {
+    this.increment();
+  }
+  next();
+});
