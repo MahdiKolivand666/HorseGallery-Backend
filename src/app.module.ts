@@ -32,6 +32,7 @@ import { SeoModule } from './seo/seo.module';
 import { ProductModule } from './product/product.module';
 import { TicketModule } from './ticket/ticket.module';
 import { ShopModule } from './shop/shop.module';
+import { SharedModule } from './shared/shared.module';
 import { AuditLogService } from './shared/services/audit-log.service';
 import { ApiKeyService } from './shared/services/api-key.service';
 import { ApiKey, ApiKeySchema } from './shared/schemas/api-key.schema';
@@ -84,6 +85,7 @@ import {
     ProductModule,
     TicketModule,
     ShopModule,
+    SharedModule,
   ],
   controllers: [AppController],
   providers: [
