@@ -116,7 +116,8 @@ export class UserService {
         );
         throw new BadRequestException('رمز عبور اشتباه است');
       } else {
-        await this.sendCode(mobile);
+        // Send verification code and return response
+        return await this.sendCode(mobile);
       }
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -194,18 +195,40 @@ export class UserService {
       );
     }
 
-    // Code is correct - generate JWT token
+    // Code is correct - generate JWT access token (15 minutes expiry)
     const payload = { _id: user._id, role: user.role };
-    const token = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '15m', // 15 minutes
+    });
 
-    // Clear verification code data
+    // Generate refresh token (7 days expiry)
+    const refreshTokenPayload = {
+      _id: user._id,
+      type: 'refresh',
+    };
+    const refreshToken = this.jwtService.sign(refreshTokenPayload, {
+      expiresIn: '7d', // 7 days
+    });
+
+    // Hash refresh token for storage
+    const salt = await bcrypt.genSalt();
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, salt);
+
+    // Set refresh token expiry (7 days from now)
+    const refreshTokenExpiry = new Date();
+    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7);
+
+    // Clear verification code data and save refresh token
     user.code = undefined;
     user.codeExpiry = undefined;
     user.codeAttempts = 0;
+    user.refreshToken = hashedRefreshToken;
+    user.refreshTokenExpiry = refreshTokenExpiry;
     await user.save();
 
     return {
-      access_token: token,
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         _id: user._id,
         mobile: user.mobile,
@@ -218,6 +241,7 @@ export class UserService {
 
   async sendCode(mobile: string) {
     const user = await this.findOneByMobile(mobile);
+    const isDevelopment = this.configService.get('NODE_ENV') !== 'production';
 
     // Rate limiting: Check if user sent too many codes
     const now = new Date();
@@ -228,21 +252,26 @@ export class UserService {
       user.codeSentCount = 0;
     }
 
-    // Check rate limit (max 3 codes per hour)
-    if (user.codeSentCount >= 3) {
-      throw new BadRequestException(
-        'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً یک ساعت دیگر تلاش کنید',
-      );
-    }
+    // In development mode, skip rate limiting
+    if (!isDevelopment) {
+      // Check rate limit (max 3 codes per hour)
+      if (user.codeSentCount >= 3) {
+        throw new BadRequestException(
+          'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً یک ساعت دیگر تلاش کنید',
+        );
+      }
 
-    // Check if user sent code recently (wait at least 60 seconds)
-    if (user.lastCodeSentAt) {
-      const secondsSinceLastCode =
-        (now.getTime() - user.lastCodeSentAt.getTime()) / 1000;
+      // Check if user sent code recently (wait at least 60 seconds)
+      if (user.lastCodeSentAt) {
+        const secondsSinceLastCode =
+          (now.getTime() - user.lastCodeSentAt.getTime()) / 1000;
 
-      if (secondsSinceLastCode < 60) {
-        const waitTime = Math.ceil(60 - secondsSinceLastCode);
-        throw new BadRequestException(`لطفاً ${waitTime} ثانیه دیگر صبر کنید`);
+        if (secondsSinceLastCode < 60) {
+          const waitTime = Math.ceil(60 - secondsSinceLastCode);
+          throw new BadRequestException(
+            `لطفاً ${waitTime} ثانیه دیگر صبر کنید`,
+          );
+        }
       }
     }
 
@@ -267,15 +296,129 @@ export class UserService {
     // Send SMS
     const smsSent = await this.smsService.sendVerificationCode(mobile, code);
 
-    if (!smsSent) {
+    // In development mode, return the code even if SMS fails
+    if (!smsSent && !isDevelopment) {
       throw new BadRequestException(
         'خطا در ارسال پیامک. لطفاً دوباره تلاش کنید',
       );
     }
 
-    return {
+    // Build response
+    const response: {
+      message: string;
+      expiresIn: string;
+      code?: string; // Only in development
+    } = {
       message: 'کد تایید با موفقیت ارسال شد',
       expiresIn: '2 دقیقه',
+    };
+
+    // In development mode, include the code in response
+    if (isDevelopment || !smsSent) {
+      response.code = code;
+      response.message = 'کد تایید (Development Mode - کد در response)';
+    }
+
+    return response;
+  }
+
+  async getVerificationCode(mobile: string) {
+    const user = await this.findOneByMobile(mobile);
+
+    if (!user.code) {
+      return {
+        message: 'کد تایید یافت نشد. لطفاً ابتدا لاگین کنید',
+        hasCode: false,
+      };
+    }
+
+    // Check if code is expired
+    const isExpired = user.codeExpiry && new Date() > user.codeExpiry;
+
+    return {
+      message: isExpired
+        ? 'کد تایید منقضی شده است'
+        : 'کد تایید فعال است (در database hash شده است)',
+      hasCode: !isExpired,
+      codeExpiry: user.codeExpiry,
+      codeAttempts: user.codeAttempts,
+      note: 'کد در database به صورت hash ذخیره شده. برای دیدن کد واقعی، console terminal رو چک کن (کد در log چاپ میشه)',
+    };
+  }
+
+  async resetRateLimit(mobile: string) {
+    const user = await this.findOneByMobile(mobile);
+
+    user.codeSentCount = 0;
+    user.lastCodeSentAt = undefined;
+    await user.save();
+
+    return {
+      message: 'Rate limit reset successfully',
+      mobile: user.mobile,
+    };
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      // Verify refresh token
+      const payload = await this.jwtService.verifyAsync(refreshToken);
+
+      // Check if it's a refresh token
+      if (payload.type !== 'refresh') {
+        throw new BadRequestException('Invalid token type');
+      }
+
+      // Find user
+      const user = await this.findOne(payload._id);
+
+      // Check if refresh token exists in database
+      if (!user.refreshToken) {
+        throw new BadRequestException('Refresh token not found');
+      }
+
+      // Verify the refresh token matches the stored hash
+      const isTokenValid = await bcrypt.compare(
+        refreshToken,
+        user.refreshToken,
+      );
+
+      if (!isTokenValid) {
+        throw new BadRequestException('Invalid refresh token');
+      }
+
+      // Check if refresh token is expired
+      if (user.refreshTokenExpiry && new Date() > user.refreshTokenExpiry) {
+        throw new BadRequestException('Refresh token expired');
+      }
+
+      // Generate new access token
+      const newPayload = { _id: user._id, role: user.role };
+      const newAccessToken = this.jwtService.sign(newPayload, {
+        expiresIn: '15m', // 15 minutes
+      });
+
+      return {
+        access_token: newAccessToken,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Invalid or expired refresh token');
+    }
+  }
+
+  async logout(userId: string) {
+    const user = await this.findOne(userId);
+
+    // Clear refresh token
+    user.refreshToken = undefined;
+    user.refreshTokenExpiry = undefined;
+    await user.save();
+
+    return {
+      message: 'Logout successful',
     };
   }
 }

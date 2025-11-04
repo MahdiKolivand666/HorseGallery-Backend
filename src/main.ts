@@ -47,6 +47,10 @@ async function bootstrap() {
   // ============================================================================
 
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
+  const isProduction = configService.get('NODE_ENV') === 'production';
+
+  // In development, allow all localhost origins (including Swagger UI)
+  // In production, only allow specified origins
   const allowedOrigins = corsOrigin
     ? corsOrigin.split(',').map((origin) => origin.trim())
     : ['http://localhost:4000'];
@@ -56,6 +60,12 @@ async function bootstrap() {
       // Allow requests with no origin (like mobile apps, Postman, curl)
       if (!origin) return callback(null, true);
 
+      // In development, allow all localhost origins
+      if (!isProduction && origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+
+      // In production, check against allowed origins
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -79,7 +89,6 @@ async function bootstrap() {
   // ============================================================================
 
   // Global validation pipe for request validation with security enhancements
-  const isProduction = configService.get('NODE_ENV') === 'production';
 
   app.useGlobalPipes(
     new ValidationPipe({
