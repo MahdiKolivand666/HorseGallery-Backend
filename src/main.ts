@@ -7,7 +7,7 @@ import { IdPipe } from './shared/pipes/id.pipe';
 import { DuplicateFilter } from './shared/filters/duplicate.filter';
 import helmet from 'helmet';
 import * as express from 'express';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   // Create NestJS application instance

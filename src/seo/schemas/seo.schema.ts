@@ -5,7 +5,6 @@ import { Document } from 'mongoose';
 export class Seo extends Document {
   @Prop({
     required: true,
-    unique: true,
     type: String,
   })
   url: string;

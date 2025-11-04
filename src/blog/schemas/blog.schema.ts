@@ -13,7 +13,7 @@ export class Blog extends Document {
 
   @Prop()
   image: string;
-  @Prop({ unique: true, required: true, type: String })
+  @Prop({ required: true, type: String })
   url: string;
 
   @Prop({ type: Types.ObjectId, ref: BlogCategory.name, required: true })
