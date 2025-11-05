@@ -12,6 +12,7 @@ import { User } from 'src/shared/decorators/user.decorator';
 import { TicketService } from '../services/ticket.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { TicketMessagePipe } from 'src/shared/pipes/ticket-message.pipe';
 import { TicketQueryDto } from '../dtos/ticket-query.dto';
 import { BodyIdPipe } from 'src/shared/pipes/body-id.pipe';
@@ -20,7 +21,7 @@ import { TicketStatus } from '../schemas/ticket.schema';
 
 @ApiTags('Panel Ticket')
 @ApiBearerAuth()
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, CsrfGuard)
 @Controller('panel-ticket')
 export class PanelTicketController {
   constructor(private readonly ticketService: TicketService) {}

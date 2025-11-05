@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { TicketService } from '../services/ticket.service';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { Role } from 'src/user/schemas/user.schema';
@@ -23,7 +24,7 @@ import { TicketStatus } from '../schemas/ticket.schema';
 
 @ApiTags('Ticket')
 @ApiBearerAuth()
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin]), CsrfGuard)
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}

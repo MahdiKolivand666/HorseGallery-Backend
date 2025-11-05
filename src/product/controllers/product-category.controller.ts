@@ -16,13 +16,14 @@ import { ProductCategoryService } from '../services/product-category.service';
 import { ProductCategoryQueryDto } from '../dtos/product-category-query.dto';
 import { UpdateProductCategoryDto } from '../dtos/update-product-category.dto';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { Role } from 'src/user/schemas/user.schema';
 import { UrlPipe } from 'src/shared/pipes/url.pipe';
 
 @ApiTags('ProductCategory')
 @Controller('product-category')
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]), CsrfGuard)
 @ApiBearerAuth()
 export class ProductCategoryController {
   constructor(

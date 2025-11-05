@@ -14,7 +14,10 @@ import { UserService } from '../services/user.service';
 import { ChangePasswordDto } from '../dtos/change-password.dto';
 import { BodyIdPipe } from 'src/shared/pipes/body-id.pipe';
 import { ChangePasswordPipe } from 'src/shared/pipes/change-password.pipe';
+import { PostalCodePipe } from 'src/shared/pipes/postal-code.pipe';
+import { ReceiverMobilePipe } from 'src/shared/pipes/receiver-mobile.pipe';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { AddressService } from '../services/address.service';
 import { AddressQueryDto } from '../dtos/address-query.dto';
 import { AddressDto } from '../dtos/address.dto';
@@ -22,7 +25,7 @@ import { UpdateAddressDto } from '../dtos/update-address.dto';
 import { User } from 'src/shared/decorators/user.decorator';
 
 @ApiTags('Panel')
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, CsrfGuard)
 @ApiBearerAuth()
 @Controller('panel')
 export class PanelController {
@@ -37,7 +40,10 @@ export class PanelController {
   }
 
   @Post('address')
-  createAddress(@Body() body: AddressDto, @User() user: string) {
+  createAddress(
+    @Body(new PostalCodePipe(), new ReceiverMobilePipe()) body: AddressDto,
+    @User() user: string,
+  ) {
     return this.addressService.create(body, user);
   }
 
@@ -47,7 +53,11 @@ export class PanelController {
   }
 
   @Patch('address/:id')
-  editAddress(@Param('id') id: string, @Body() body: UpdateAddressDto) {
+  editAddress(
+    @Param('id') id: string,
+    @Body(new PostalCodePipe(), new ReceiverMobilePipe())
+    body: UpdateAddressDto,
+  ) {
     return this.addressService.update(id, body);
   }
 

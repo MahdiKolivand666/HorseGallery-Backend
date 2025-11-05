@@ -6,19 +6,32 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
 /**
  * CSRF Guard using Double Submit Cookie pattern
  * More modern and secure than deprecated csurf package
+ *
+ * NOTE: Disabled in development mode for easier Swagger testing
  */
 @Injectable()
 export class CsrfGuard implements CanActivate {
   private readonly logger = new Logger(CsrfGuard.name);
 
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private configService: ConfigService,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // Skip CSRF check in development mode for easier Swagger testing
+    const isDevelopment = this.configService.get('NODE_ENV') !== 'production';
+    if (isDevelopment) {
+      this.logger.debug('⚠️  CSRF Guard disabled in development mode');
+      return true;
+    }
+
     // Check if route is marked as CSRF exempt
     const isPublic = this.reflector.get<boolean>(
       'csrf_exempt',

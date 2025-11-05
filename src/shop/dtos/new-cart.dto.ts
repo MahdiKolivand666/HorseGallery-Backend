@@ -1,7 +1,18 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class newCartDto {
   @IsNotEmpty()
   @IsString()
-  product: string;
+  productId: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1, { message: 'تعداد باید حداقل 1 باشد' })
+  quantity?: number;
 }

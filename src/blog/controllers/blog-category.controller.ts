@@ -16,13 +16,14 @@ import { BlogCategoryService } from '../services/blog-category.service';
 import { BlogCategoryQueryDto } from '../dtos/blog-category-query.dto';
 import { UpdateBlogCategoryDto } from '../dtos/update-blog-category.dto';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { Role } from 'src/user/schemas/user.schema';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { UrlPipe } from 'src/shared/pipes/url.pipe';
 
 @ApiTags('BlogCategory')
 @Controller('blog-category')
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]), CsrfGuard)
 @ApiBearerAuth()
 export class BlogCategoryController {
   constructor(private readonly blogCategoryService: BlogCategoryService) {}

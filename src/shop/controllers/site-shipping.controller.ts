@@ -7,7 +7,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 @ApiTags('Site Shipping')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)
-@Controller('site-shipping')
+@Controller('site/shipping')
 export class SiteShippingController {
   constructor(private readonly shippingService: ShippingService) {}
 

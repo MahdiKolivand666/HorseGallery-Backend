@@ -15,6 +15,7 @@ import { OrderController } from './controllers/order.controller';
 import { OrderService } from './services/order.service';
 import { ProductModule } from 'src/product/product.module';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   controllers: [
@@ -26,7 +27,14 @@ import { JwtModule } from '@nestjs/jwt';
   ],
   providers: [CartService, ShippingService, OrderService],
   imports: [
-    JwtModule,
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+      }),
+      inject: [ConfigService],
+    }),
     ProductModule,
     MongooseModule.forFeature([
       { name: Cart.name, schema: cartSchema },

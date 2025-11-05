@@ -7,10 +7,10 @@ import { AuthController } from './controllers/auth.controller';
 import { PanelController } from './controllers/panel.controller';
 import { Address, addressSchema } from './schemas/address.schema';
 import { AddressService } from './services/address.service';
-import { JwtModule } from '@nestjs/jwt';
 import { SmsService } from 'src/shared/services/sms.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SharedModule } from 'src/shared/shared.module';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   controllers: [UserController, AuthController, PanelController],

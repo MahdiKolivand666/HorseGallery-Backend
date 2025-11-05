@@ -19,12 +19,14 @@ import { FarsiPipe } from 'src/shared/pipes/farsi.pipe';
 import { Role } from '../schemas/user.schema';
 import { ConfigService } from '@nestjs/config';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard, CsrfExempt } from 'src/shared/guards/csrf.guard';
 import { User } from 'src/shared/decorators/user.decorator';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import type { Request } from 'express';
 
 @ApiTags('Authentication')
 @Controller('auth')
+@UseGuards(CsrfGuard)
 export class AuthController {
   constructor(
     private readonly userService: UserService,
@@ -32,6 +34,7 @@ export class AuthController {
   ) {}
 
   @Post('sign-in')
+  @CsrfExempt()
   signIn(
     @Body(MobilePipe, new PasswordPipe(false)) body: AuthDto,
     @Req() req: Request,
@@ -45,11 +48,13 @@ export class AuthController {
   }
 
   @Post('resend')
+  @CsrfExempt()
   resendCode(@Body(MobilePipe) body: ResendDto) {
     return this.userService.sendCode(body.mobile);
   }
 
   @Post('sign-up')
+  @CsrfExempt()
   async signup(
     @Body(FarsiPipe, MobilePipe, new PasswordPipe(true)) body: SignUpDto,
   ) {
@@ -64,6 +69,7 @@ export class AuthController {
   }
 
   @Get('dev-code')
+  @CsrfExempt()
   async getDevCode(@Query('mobile') mobile: string) {
     const isDevelopment = this.configService.get('NODE_ENV') !== 'production';
     if (!isDevelopment) {
@@ -76,6 +82,7 @@ export class AuthController {
   }
 
   @Post('dev-reset-rate-limit')
+  @CsrfExempt()
   async resetRateLimit(@Body('mobile') mobile: string) {
     const isDevelopment = this.configService.get('NODE_ENV') !== 'production';
     if (!isDevelopment) {

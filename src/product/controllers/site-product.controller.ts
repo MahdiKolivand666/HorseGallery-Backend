@@ -13,6 +13,13 @@ export class SiteProductController {
     private readonly productService: ProductService,
   ) {}
 
+  @Get()
+  findAll(@Query() queryParams: ProductQueryDto) {
+    return this.productService.findAll(queryParams, {
+      __v: 0,
+    });
+  }
+
   @Get('categories')
   findCategories(@Query() queryParams: ProductCategoryQueryDto) {
     return this.productCategoryService.findAll(queryParams, {

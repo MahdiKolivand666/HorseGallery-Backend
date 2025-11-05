@@ -23,7 +23,8 @@ export class CartService {
       user: user,
     });
     const newCartItem = new this.cartItemModel({
-      product: body.product,
+      product: body.productId,
+      quantity: body.quantity || 1,
       cart: newCart._id.toString(),
     });
 
@@ -61,6 +62,29 @@ export class CartService {
     } else {
       throw new NotFoundException();
     }
+  }
+
+  async findCartByUser(userId: string) {
+    const cart = await this.cartModel
+      .findOne({ user: userId })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (cart) {
+      return cart;
+    } else {
+      return null; // Return null if no cart exists for user
+    }
+  }
+
+  async getUserCart(userId: string) {
+    const cart = await this.findCartByUser(userId);
+
+    if (!cart) {
+      throw new NotFoundException('سبد خرید یافت نشد');
+    }
+
+    return this.getCartDetails(cart._id.toString());
   }
   async getCartDetails(id: string) {
     const cart = await this.findCart(id);
@@ -128,18 +152,20 @@ export class CartService {
     const items = await this.findCartItem(id);
     const oldItem = items.find(
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      (item) => `${item.product._id}` === body.product,
+      (item) => `${item.product._id}` === body.productId,
     );
 
     if (oldItem?._id) {
+      const newQuantity = (body.quantity || 1) + oldItem.quantity;
       await this.editCart(id, {
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         cartItem: oldItem._id.toString(),
-        quantity: oldItem.quantity + 1,
+        quantity: newQuantity,
       });
     } else {
       await this.createCartItem({
-        product: body.product,
+        product: body.productId,
+        quantity: body.quantity || 1,
         cart: id,
       });
     }

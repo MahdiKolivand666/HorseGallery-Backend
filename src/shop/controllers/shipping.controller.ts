@@ -14,13 +14,14 @@ import { ShippingDto } from '../dtos/shipping.dto';
 import { ShippingQueryDto } from '../dtos/shipping-query.dto';
 import { ShippingService } from '../services/shipping.service';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { UpdateShippingDto } from '../dtos/update-shipping.dto';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { Role } from 'src/user/schemas/user.schema';
 
 @ApiTags('Shipping')
 @ApiBearerAuth()
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin]), CsrfGuard)
 @Controller('shipping')
 export class ShippingController {
   constructor(private readonly shippingService: ShippingService) {}

@@ -5,7 +5,7 @@ import { SeoQueryDto } from '../dtos/seo-query.dto';
 import { UrlPipe } from 'src/shared/pipes/url.pipe';
 
 @ApiTags('Site Seo')
-@Controller('site-seo')
+@Controller('site/seo')
 export class SiteSeoController {
   constructor(private readonly seoService: SeoService) {}
   @Get()

@@ -14,6 +14,17 @@ export class SiteBlogController {
     private readonly blogService: BlogService,
   ) {}
 
+  @Get()
+  findAllBlogs(@Query() queryParams: BlogQueryDto) {
+    return this.blogService.findAll(queryParams, {
+      title: 1,
+      url: 1,
+      image: 1,
+      category: 1,
+      createdAt: 1,
+    });
+  }
+
   @Get('categories')
   findCategories(@Query() queryParams: BlogCategoryQueryDto) {
     return this.blogCategoryService.findAll(queryParams, {

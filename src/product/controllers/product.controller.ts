@@ -15,6 +15,7 @@ import { ProductService } from '../services/product.service';
 import { ProductQueryDto } from '../dtos/product-query.dto';
 import { UpdateProductDto } from '../dtos/update-product.dto';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { Role } from 'src/user/schemas/user.schema';
 import { UrlPipe } from 'src/shared/pipes/url.pipe';
@@ -26,7 +27,7 @@ import { InventoryRecordQueryDto } from '../dtos/inventory-record-query.dto';
 
 @ApiTags('Product')
 @Controller('product')
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]), CsrfGuard)
 @ApiBearerAuth()
 export class ProductController {
   constructor(

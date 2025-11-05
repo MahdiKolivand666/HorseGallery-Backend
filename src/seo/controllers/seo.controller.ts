@@ -14,12 +14,13 @@ import { SeoDto } from '../dtos/seo.dto';
 import { SeoQueryDto } from '../dtos/seo-query.dto';
 import { SeoService } from '../services/seo.service';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { UrlPipe } from 'src/shared/pipes/url.pipe';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { Role } from 'src/user/schemas/user.schema';
 
 @ApiTags('Seo')
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin, Role.CopyWriter]), CsrfGuard)
 @ApiBearerAuth()
 @Controller('seo')
 export class SeoController {

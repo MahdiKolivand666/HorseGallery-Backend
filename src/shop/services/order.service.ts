@@ -40,6 +40,16 @@ export class OrderService {
       `Creating order for user ${user}, cart ${cartId}, address ${addressId}, shipping ${shippingId}`,
     );
 
+    // Check if we're in development mode with test merchant
+    const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
+    const merchantId = this.configService.get<string>('MERCHANT_ID');
+    const isDevelopment = nodeEnv !== 'production';
+    const isTestMerchant =
+      !merchantId ||
+      merchantId === 'your-merchant-id-here' ||
+      merchantId.includes('test') ||
+      merchantId.includes('sandbox');
+
     // Generate idempotency key based on user and cart (without timestamp)
     const idempotencyKey = `order_${user}_${cartId}`;
 
@@ -61,8 +71,20 @@ export class OrderService {
         existingOrder.lastPaymentAttemptAt &&
         existingOrder.lastPaymentAttemptAt > fifteenMinutesAgo
       ) {
-        // Return existing order's refId
-        return existingOrder.refId;
+        // Return existing order's response
+        const orderId = (existingOrder._id as Types.ObjectId).toString();
+        const paymentUrl =
+          isDevelopment && isTestMerchant
+            ? null
+            : `https://www.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
+        return {
+          success: true,
+          refId: existingOrder.refId,
+          orderId: orderId,
+          message: 'سفارش قبلاً ثبت شده است',
+          paymentUrl: paymentUrl,
+          finalPrice: existingOrder.finalPrice,
+        };
       } else {
         // Old order, allow retry but increment attempts
         existingOrder.paymentAttempts =
@@ -79,7 +101,19 @@ export class OrderService {
         }
 
         await existingOrder.save();
-        return existingOrder.refId;
+        const orderId = (existingOrder._id as Types.ObjectId).toString();
+        const paymentUrl =
+          isDevelopment && isTestMerchant
+            ? null
+            : `https://www.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
+        return {
+          success: true,
+          refId: existingOrder.refId,
+          orderId: orderId,
+          message: 'سفارش قبلاً ثبت شده است',
+          paymentUrl: paymentUrl,
+          finalPrice: existingOrder.finalPrice,
+        };
       }
     }
 
@@ -163,11 +197,26 @@ export class OrderService {
       }
       await order.save();
 
+      const orderId = (order._id as Types.ObjectId).toString();
+
       this.logger.log(
-        `Order created successfully: ${(order._id as Types.ObjectId).toString()}, authority: ${order.refId}, final price: ${order.finalPrice}`,
+        `Order created successfully: ${orderId}, authority: ${order.refId}, final price: ${order.finalPrice}`,
       );
 
-      return order.refId;
+      // Generate payment URL for production
+      const paymentUrl =
+        isDevelopment && isTestMerchant
+          ? null
+          : `https://www.zarinpal.com/pg/StartPay/${order.refId}`;
+
+      return {
+        success: true,
+        refId: order.refId,
+        orderId: orderId,
+        message: 'سفارش با موفقیت ثبت شد',
+        paymentUrl: paymentUrl,
+        finalPrice: order.finalPrice,
+      };
     } else {
       throw new BadRequestException('خطا در ایجاد درخواست پرداخت');
     }
@@ -280,6 +329,33 @@ export class OrderService {
       const merchantId = this.configService.get<string>('MERCHANT_ID');
       const serverUrl = this.configService.get<string>('SERVER_URL');
       const bankUrl = this.configService.get<string>('BANK_URL');
+      const nodeEnv =
+        this.configService.get<string>('NODE_ENV') || 'development';
+
+      // Development mode: Check if we should use mock payment
+      const isDevelopment = nodeEnv !== 'production';
+      const isTestMerchant =
+        !merchantId ||
+        merchantId === 'your-merchant-id-here' ||
+        merchantId.includes('test') ||
+        merchantId.includes('sandbox');
+
+      if (isDevelopment && isTestMerchant) {
+        this.logger.warn(
+          `⚠️ Development Mode: Using mock payment gateway (amount: ${finalPrice} Toman)`,
+        );
+        this.logger.warn(
+          `⚠️ MERCHANT_ID is not configured or is a test value. In production, use real Zarinpal merchant ID.`,
+        );
+
+        // Generate a mock authority code
+        const mockAuthority = `A0000000000000000000000000000000000000${Date.now().toString().slice(-10)}`;
+        return {
+          code: 100,
+          message: 'موفق',
+          authority: mockAuthority,
+        };
+      }
 
       if (!merchantId) {
         this.logger.error('Merchant ID is not configured');
@@ -300,12 +376,14 @@ export class OrderService {
         merchant_id: merchantId,
         amount: finalPrice * 10,
         description: 'Gold Gallery Order',
-        callback_url: `${serverUrl}/site-order/callback`,
+        callback_url: `${serverUrl}/site/order/callback`,
       };
 
       this.logger.log(
-        `Creating payment request for amount ${finalPrice} Toman`,
+        `Creating payment request for amount ${finalPrice} Toman (${finalPrice * 10} Rials)`,
       );
+      this.logger.debug(`Bank URL: ${bankUrl}`);
+      this.logger.debug(`Callback URL: ${serverUrl}/site/order/callback`);
 
       const response = await axios.post(bankUrl, bankData, {
         timeout: 10000, // 10 second timeout
@@ -313,6 +391,10 @@ export class OrderService {
           'Content-Type': 'application/json',
         },
       });
+
+      this.logger.debug(
+        `Bank response status: ${response.status}, data: ${JSON.stringify(response.data)}`,
+      );
 
       if (response?.data?.data) {
         this.logger.log(
@@ -341,12 +423,22 @@ export class OrderService {
             'زمان اتصال به درگاه بانکی به پایان رسید. لطفاً دوباره تلاش کنید',
           );
         } else if (axiosError.response) {
+          const errorData = axiosError.response.data as any;
+          const errorStatus = axiosError.response.status;
           this.logger.error(
-            `Bank gateway returned error: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`,
+            `Bank gateway returned error: ${errorStatus} - ${JSON.stringify(errorData)}`,
             axiosError.stack,
           );
+
+          // Log more details for debugging
+          if (errorData?.errors) {
+            this.logger.error(
+              `Zarinpal errors: ${JSON.stringify(errorData.errors)}`,
+            );
+          }
+
           throw new BadRequestException(
-            'خطای درگاه بانکی. لطفاً دوباره تلاش کنید',
+            `خطای درگاه بانکی (${errorStatus}): ${errorData?.errors?.merchant_id?.[0] || errorData?.message || 'لطفاً دوباره تلاش کنید'}`,
           );
         } else {
           this.logger.error(

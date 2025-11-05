@@ -16,6 +16,7 @@ import {
 } from './schemas/inventory-record.schema';
 import { InventoryRecordService } from './services/inventory-record.service';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   controllers: [
@@ -26,7 +27,14 @@ import { JwtModule } from '@nestjs/jwt';
   exports: [ProductService],
   providers: [ProductService, ProductCategoryService, InventoryRecordService],
   imports: [
-    JwtModule,
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+      }),
+      inject: [ConfigService],
+    }),
     MongooseModule.forFeature([
       {
         name: Product.name,

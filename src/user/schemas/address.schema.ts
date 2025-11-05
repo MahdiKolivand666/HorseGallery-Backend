@@ -5,7 +5,26 @@ import { User } from 'src/user/schemas/user.schema';
 @Schema({ timestamps: true })
 export class Address extends Document {
   @Prop()
-  content: string;
+  province: string;
+
+  @Prop()
+  city: string;
+
+  @Prop()
+  address: string;
+
+  @Prop()
+  postalCode: string;
+
+  @Prop()
+  receiverName: string;
+
+  @Prop()
+  receiverMobile: string;
+
+  // Legacy field - kept for backward compatibility
+  @Prop()
+  content?: string;
 
   @Prop({
     type: Types.ObjectId,

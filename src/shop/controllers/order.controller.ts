@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OrderService } from '../services/order.service';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { RoleGuard } from 'src/shared/guards/role.guard';
 import { Role } from 'src/user/schemas/user.schema';
 import { OrderQueryDto } from '../dtos/order-query.dto';
@@ -17,7 +18,7 @@ import { UpdateOrderDto } from '../dtos/update-order.dto';
 
 @ApiTags('Order')
 @ApiBearerAuth()
-@UseGuards(JwtGuard, new RoleGuard([Role.Admin]))
+@UseGuards(JwtGuard, new RoleGuard([Role.Admin]), CsrfGuard)
 @Controller('order')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
