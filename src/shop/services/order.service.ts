@@ -134,7 +134,7 @@ export class OrderService {
 
       if (product.stock < item.quantity) {
         throw new BadRequestException(
-          `موجودی ${product.title} کافی نیست. موجودی فعلی: ${product.stock}`,
+          `موجودی ${(product as any).name || (product as any).title || 'نامشخص'} کافی نیست. موجودی فعلی: ${product.stock}`,
         );
       }
     }
@@ -168,14 +168,15 @@ export class OrderService {
 
       for (const item of cart.items) {
         const price = item?.product?.price;
-        const discount = item?.product?.discount;
+        const discount = (item?.product as any)?.discountPrice || (item?.product as any)?.discount || 0;
         const quantity = item?.quantity;
+        const productName = (item?.product as any)?.name || (item?.product as any)?.title || 'نامشخص';
 
         // Use helper function for consistent calculation
         const itemPrices = calculateItemTotal(price, discount, quantity);
 
         this.logger.debug(
-          `OrderItem: ${item.product.title} x${quantity} = ${itemPrices.priceWithDiscount} (saved: ${itemPrices.savings})`,
+          `OrderItem: ${productName} x${quantity} = ${itemPrices.priceWithDiscount} (saved: ${itemPrices.savings})`,
         );
 
         const orderItem = new this.orderItemModel({

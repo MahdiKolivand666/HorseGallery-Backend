@@ -23,12 +23,16 @@ export class ProductCategoryService {
 
     const query: any = {};
 
+    // Support both old (title) and new (name) field names
     if (title) {
-      query.title = { $regex: title, $options: 'i' };
+      query.$or = [
+        { name: { $regex: title, $options: 'i' } },
+        { title: { $regex: title, $options: 'i' } },
+      ];
     }
 
     if (url) {
-      query.url = { $regex: url, $options: 'i' };
+      query.slug = { $regex: url, $options: 'i' };
     }
 
     const sortObject = sortFunction(sort);
@@ -46,6 +50,41 @@ export class ProductCategoryService {
     return { count, productCategories };
   }
 
+  async findPublicCategories(includeSubcategories: boolean = true) {
+    const categories = await this.productCategoryModel
+      .find({})
+      .sort({ createdAt: 1 })
+      .select({
+        __v: 0,
+      })
+      .exec();
+
+    // Format response
+    const formattedCategories = categories.map((cat) => {
+      const categoryDoc = cat as any;
+      const categoryObj: any = {
+        _id: cat._id,
+        name: cat.name,
+        slug: cat.slug,
+        heroImage: categoryDoc.heroImage || categoryDoc.image,
+        content: cat.content,
+        createdAt: categoryDoc.createdAt,
+        updatedAt: categoryDoc.updatedAt,
+      };
+
+      if (includeSubcategories && cat.subcategories) {
+        categoryObj.subcategories = cat.subcategories.map((sub: any) => ({
+          name: sub.name,
+          slug: sub.slug,
+        }));
+      }
+
+      return categoryObj;
+    });
+
+    return formattedCategories;
+  }
+
   async findOne(id: string, selectObject: any = { __v: 0 }) {
     const productCategory = await this.productCategoryModel
       .findOne({ _id: id })
@@ -60,7 +99,7 @@ export class ProductCategoryService {
 
   async findOneWithUrl(url: string, selectObject: any = { __v: 0 }) {
     const productCategory = await this.productCategoryModel
-      .findOne({ url: url })
+      .findOne({ slug: url })
       .select(selectObject)
       .exec();
     if (productCategory) {
@@ -77,10 +116,14 @@ export class ProductCategoryService {
   }
 
   async update(id: string, body: UpdateProductCategoryDto) {
-    const productCategory = await this.findOne(id, { _id: 1, image: 1 });
+    const productCategory = await this.findOne(id, { _id: 1, heroImage: 1, image: 1 });
 
-    if (body?.image) {
-      await deleteImages(productCategory.image, 'productCategory');
+    // Support both old (image) and new (heroImage) field names
+    const imageToDelete = (productCategory as any).heroImage || (productCategory as any).image;
+    if (body?.image || body?.heroImage) {
+      if (imageToDelete) {
+        await deleteImages(imageToDelete, 'productCategory');
+      }
     }
 
     return await this.productCategoryModel.findByIdAndUpdate(id, body, {
@@ -91,7 +134,11 @@ export class ProductCategoryService {
   async delete(id: string) {
     const productCategory = await this.findOne(id);
 
-    await deleteImages(productCategory.image, 'productCategory');
+    // Support both old (image) and new (heroImage) field names
+    const imageToDelete = (productCategory as any).heroImage || (productCategory as any).image;
+    if (imageToDelete) {
+      await deleteImages(imageToDelete, 'productCategory');
+    }
     await productCategory.deleteOne();
 
     return productCategory;

@@ -17,14 +17,16 @@ export class Address extends Document {
   postalCode: string;
 
   @Prop()
-  receiverName: string;
+  recipientName: string; // قبلاً receiverName بود
 
   @Prop()
-  receiverMobile: string;
+  recipientMobile: string; // قبلاً receiverMobile بود
 
-  // Legacy field - kept for backward compatibility
   @Prop()
-  content?: string;
+  title?: string; // مثال: "خانه", "محل کار"
+
+  @Prop({ default: false })
+  isDefault: boolean;
 
   @Prop({
     type: Types.ObjectId,

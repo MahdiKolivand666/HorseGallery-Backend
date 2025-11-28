@@ -15,6 +15,12 @@ export class CartItem extends Document {
 
   @Prop({ required: true, ref: Cart.name, type: Types.ObjectId })
   cart: Cart;
+
+  @Prop()
+  size?: string;
+
+  @Prop({ required: true })
+  price: number; // قیمت در زمان افزودن
 }
 
 export const cartItemSchema = SchemaFactory.createForClass(CartItem);

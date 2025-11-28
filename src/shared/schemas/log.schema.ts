@@ -1,6 +1,6 @@
 import { Prop, SchemaFactory, Schema } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from 'src/user/schemas/user.schema';
+import { User } from '../../user/schemas/user.schema';
 
 export enum LogType {
   ERROR = 'error',

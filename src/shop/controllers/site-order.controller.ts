@@ -28,6 +28,7 @@ import type { Response } from 'express';
 import { OrderStatus } from '../schemas/order.schema';
 import { Types } from 'mongoose';
 import { CartService } from '../services/cart.service';
+import { ProductService } from 'src/product/services/product.service';
 
 @ApiTags('Site Order')
 @Controller('site/order')
@@ -37,6 +38,7 @@ export class SiteOrderController {
     private readonly orderService: OrderService,
     private readonly cartService: CartService,
     private readonly configService: ConfigService,
+    private readonly productService: ProductService,
   ) {}
 
   @Get('callback')
@@ -62,6 +64,18 @@ export class SiteOrderController {
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         await this.cartService.removeCartAndItems(order.cart.toString());
         await order.save();
+        
+        // Increment sales count for all products in this order
+        const orderDetails = await this.orderService.findOneOrderDetails(orderId);
+        if (orderDetails?.items) {
+          for (const item of orderDetails.items) {
+            const productId = (item.product as any)?._id?.toString() || (item.product as any)?.toString();
+            if (productId) {
+              await this.productService.incrementSales(productId, item.quantity || 1);
+            }
+          }
+        }
+        
         return response.redirect(`${frontendUrl}/order/success?id=${orderId}`);
       } else {
         order.status = OrderStatus.Canceled;

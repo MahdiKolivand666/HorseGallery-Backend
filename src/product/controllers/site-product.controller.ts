@@ -23,9 +23,9 @@ export class SiteProductController {
   @Get('categories')
   findCategories(@Query() queryParams: ProductCategoryQueryDto) {
     return this.productCategoryService.findAll(queryParams, {
-      title: 1,
-      url: 1,
-      image: 1,
+      name: 1,
+      slug: 1,
+      heroImage: 1,
     });
   }
 
@@ -39,9 +39,9 @@ export class SiteProductController {
     const { products, count } = await this.productService.findAll(
       { ...queryParams, category: (category._id as string).toString() },
       {
-        title: 1,
-        url: 1,
-        image: 1,
+        name: 1,
+        slug: 1,
+        images: 1,
       },
     );
 
@@ -58,9 +58,9 @@ export class SiteProductController {
         exclude: [(product._id as string).toString()],
       },
       {
-        title: 1,
-        url: 1,
-        image: 1,
+        name: 1,
+        slug: 1,
+        images: 1,
       },
     );
 

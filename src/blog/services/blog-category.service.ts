@@ -31,7 +31,7 @@ export class BlogCategoryService {
       query.title = { $regex: title, $options: 'i' };
     }
     if (url) {
-      query.url = { $regex: url, $options: 'i' };
+      query.slug = { $regex: url, $options: 'i' };
     }
 
     const sortObject = sortFunction(sort);
@@ -62,7 +62,7 @@ export class BlogCategoryService {
   }
   async findOneWithUrl(url: string, selectObject: any = { __v: 0 }) {
     const blogCategory = await this.blogCategoryModel
-      .findOne({ url: url })
+      .findOne({ slug: url })
       .select(selectObject)
       .exec();
     if (blogCategory) {

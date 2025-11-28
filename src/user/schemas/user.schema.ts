@@ -43,6 +43,22 @@ export class User extends Document {
 
   @Prop({ required: false })
   refreshTokenExpiry?: Date;
+
+  // فیلدهای جدید
+  @Prop()
+  email?: string;
+
+  @Prop()
+  nationalCode?: string;
+
+  @Prop()
+  avatar?: string;
+
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop()
+  lastLogin?: Date;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

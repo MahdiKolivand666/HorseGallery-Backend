@@ -5,6 +5,7 @@ import { Blog } from '../schemas/blog.schema';
 import { Model, FilterQuery, SortOrder } from 'mongoose';
 import { sortFunction } from 'src/shared/utils/sort-utils';
 import { BlogQueryDto } from '../dtos/blog-query.dto';
+import { PublicBlogQueryDto } from '../dtos/public-blog-query.dto';
 import { deleteImages } from 'src/shared/utils/file-utils';
 import { UpdateBlogCategoryDto } from '../dtos/update-blog-category.dto';
 import { url } from 'inspector';
@@ -37,7 +38,7 @@ export class BlogService {
     }
 
     if (url) {
-      query.url = { $regex: url, $options: 'i' };
+      query.slug = { $regex: url, $options: 'i' };
     }
     if (user) {
       query.user = user;
@@ -69,6 +70,49 @@ export class BlogService {
     };
   }
 
+  async findPublicBlogs(queryParams: PublicBlogQueryDto) {
+    const { limit = 6, page = 1, isFeatured, category } = queryParams;
+
+    const query: FilterQuery<Blog> = {};
+
+    if (isFeatured !== undefined) {
+      query.isFeatured = isFeatured;
+    }
+
+    if (category) {
+      // Try to find category by slug first, then by id
+      const categoryDoc = await this.blogModel.db
+        .collection('blogcategories')
+        .findOne({ slug: category });
+      if (categoryDoc) {
+        query.category = categoryDoc._id;
+      } else {
+        query.category = category;
+      }
+    }
+
+    const skip = (page - 1) * limit;
+    const blogs = await this.blogModel
+      .find(query)
+      .populate('category', { title: 1, slug: 1, _id: 1 })
+      .populate('user', { firstName: 1, lastName: 1, avatar: 1, _id: 1 })
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    const total = await this.blogModel.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      posts: blogs,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
   async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const blog = await this.blogModel
       .findOne({ _id: id })
@@ -88,7 +132,7 @@ export class BlogService {
     selectObject: Record<string, 0 | 1> = { __v: 0 },
   ) {
     const blog = await this.blogModel
-      .findOne({ url: url })
+      .findOne({ slug: url })
       .populate('category', { title: 1 })
       .select(selectObject)
       .exec();

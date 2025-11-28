@@ -5,72 +5,103 @@ import {
   IsNumber,
   IsOptional,
   IsBoolean,
-  IsIn,
   Min,
 } from 'class-validator';
 
 export class ProductDto {
   @IsString()
   @IsNotEmpty()
-  title: string;
+  name: string; // قبلاً title بود
 
   @IsString()
   @IsNotEmpty()
-  content: string;
+  slug: string; // قبلاً url بود
 
   @IsString()
   @IsNotEmpty()
-  thumbnail: string;
+  code: string; // کد محصول مثل GN-001-18K
+
+  @IsString()
+  @IsNotEmpty()
+  description: string;
 
   @IsNumber()
   @IsNotEmpty()
+  @Min(0, { message: 'قیمت نمی‌تواند منفی باشد' })
   price: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  discount: number;
+  @IsOptional()
+  @Min(0, { message: 'قیمت تخفیف نمی‌تواند منفی باشد' })
+  discountPrice?: number | null; // قبلاً discount بود
 
-  @IsString()
-  @IsNotEmpty()
-  category: string;
+  @IsNumber()
+  @IsOptional()
+  stock?: number;
 
-  @IsNotEmpty()
   @IsArray()
+  @IsString({ each: true })
   images: string[];
 
-  @IsNotEmpty()
   @IsString()
-  url: string;
+  @IsNotEmpty()
+  category: string; // ObjectId as string
+
+  @IsString()
+  @IsOptional()
+  subcategory?: string; // ObjectId as string
+
+  @IsString()
+  @IsOptional()
+  weight?: string; // مثال: "12.5 گرم"
+
+  @IsString()
+  @IsOptional()
+  karat?: string; // مثال: "18 عیار"
+
+  @IsString()
+  @IsOptional()
+  material?: string; // مثال: "طلای سرخ"
+
+  @IsString()
+  @IsOptional()
+  dimensions?: string;
+
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @IsString()
+  @IsOptional()
+  coverage?: string; // نوع پوشش
+
+  @IsBoolean()
+  @IsOptional()
+  isAvailable?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isFeatured?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isBestSelling?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isNewArrival?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isGift?: boolean;
 
   @IsNumber()
   @IsOptional()
   @Min(0)
-  weight?: number; // Weight in grams
+  rating?: number;
 
   @IsNumber()
   @IsOptional()
-  @IsIn([18, 21, 24])
-  karat?: number; // Karat (18, 21, 24)
-
-  @IsString()
-  @IsOptional()
-  @IsIn(['دستبند', 'گردنبند', 'انگشتر', 'گوشواره', 'پابند', 'سایر'])
-  type?: string; // Jewelry type
-
-  @IsString()
-  @IsOptional()
-  @IsIn(['طلای زرد', 'طلای سفید', 'طلای رزگلد'])
-  material?: string; // Gold type
-
-  @IsString()
-  @IsOptional()
-  dimensions?: string; // Dimensions
-
-  @IsBoolean()
-  @IsOptional()
-  hasCertificate?: boolean; // Has authenticity certificate
-
-  @IsString()
-  @IsOptional()
-  certificateNumber?: string; // Certificate number
+  @Min(0)
+  reviewsCount?: number;
 }

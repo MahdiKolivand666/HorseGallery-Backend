@@ -10,6 +10,7 @@ import {
 } from './schemas/blog-category.schema';
 import { BlogCategoryService } from './services/blog-category.service';
 import { SiteBlogController } from './controllers/site-blog.controller';
+import { PublicBlogController } from './controllers/public-blog.controller';
 import { JwtModule } from '@nestjs/jwt';
 
 @Module({
@@ -23,7 +24,13 @@ import { JwtModule } from '@nestjs/jwt';
       },
     ]),
   ],
-  controllers: [BlogController, BlogCategoryController, SiteBlogController],
+  controllers: [
+    // Public controllers must be registered FIRST to avoid route conflicts
+    PublicBlogController,
+    SiteBlogController,
+    BlogController,
+    BlogCategoryController,
+  ],
   providers: [BlogService, BlogCategoryService],
 })
 export class BlogModule {}

@@ -14,5 +14,5 @@ export class BlogCategoryDto {
 
   @IsString()
   @IsNotEmpty()
-  url: string;
+  slug: string; // قبلاً url بود
 }

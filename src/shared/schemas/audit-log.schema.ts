@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
-import { User } from 'src/user/schemas/user.schema';
+import { User } from '../../user/schemas/user.schema';
 
 export enum AuditAction {
   // Order actions

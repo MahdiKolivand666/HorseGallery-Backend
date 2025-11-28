@@ -18,7 +18,7 @@ export class SiteBlogController {
   findAllBlogs(@Query() queryParams: BlogQueryDto) {
     return this.blogService.findAll(queryParams, {
       title: 1,
-      url: 1,
+      slug: 1,
       image: 1,
       category: 1,
       createdAt: 1,
@@ -29,7 +29,7 @@ export class SiteBlogController {
   findCategories(@Query() queryParams: BlogCategoryQueryDto) {
     return this.blogCategoryService.findAll(queryParams, {
       title: 1,
-      url: 1,
+      slug: 1,
       image: 1,
     });
   }
@@ -55,7 +55,7 @@ export class SiteBlogController {
       { ...queryParams, category: categoryId },
       {
         title: 1,
-        url: 1,
+        slug: 1,
         image: 1,
       },
     );
@@ -94,7 +94,7 @@ export class SiteBlogController {
       },
       {
         title: 1,
-        url: 1,
+        slug: 1,
         image: 1,
       },
     );

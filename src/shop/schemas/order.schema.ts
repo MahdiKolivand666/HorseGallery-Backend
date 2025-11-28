@@ -14,6 +14,9 @@ export enum OrderStatus {
 
 @Schema({ timestamps: true })
 export class Order extends Document {
+  @Prop({ required: true })
+  orderId: string; // شماره سفارش مثل ORD-53500
+
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   user: User;
 
@@ -49,26 +52,48 @@ export class Order extends Document {
   @Prop({ default: OrderStatus.Paying })
   status: OrderStatus;
 
+  // Payment fields
+  @Prop({ default: 'online' })
+  paymentMethod: string;
+
   @Prop()
-  refId: string;
+  paymentGateway?: string; // 'saman', 'mellat', 'zarinpal'
+
+  @Prop({ default: 'pending' })
+  paymentStatus: string; // 'pending', 'paid', 'failed'
+
+  @Prop()
+  transactionId?: string;
+
+  @Prop()
+  refId?: string;
 
   @Prop({ default: 0 })
   paymentAttempts: number;
 
   @Prop()
-  idempotencyKey: string;
+  idempotencyKey?: string;
 
   @Prop()
-  lastPaymentAttemptAt: Date;
+  lastPaymentAttemptAt?: Date;
+
+  @Prop()
+  trackingCode?: string;
+
+  @Prop()
+  notes?: string;
 }
 
 export const orderSchema = SchemaFactory.createForClass(Order);
 
 // Indexes for better query performance
+orderSchema.index({ orderId: 1 }, { unique: true });
 orderSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 orderSchema.index({ refId: 1 });
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
+orderSchema.index({ paymentStatus: 1 });
+orderSchema.index({ trackingCode: 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ user: 1, status: 1 }); // Compound index for user order queries
 orderSchema.index({ user: 1, createdAt: -1 }); // Compound index for user order history

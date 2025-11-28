@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class AddressDto {
   @IsString()
@@ -18,6 +18,23 @@ export class AddressDto {
   postalCode?: string;
 
   @IsString()
+  @IsNotEmpty({ message: 'نام گیرنده الزامی است' })
+  recipientName: string; // قبلاً receiverName بود
+
+  @IsString()
+  @IsNotEmpty({ message: 'موبایل گیرنده الزامی است' })
+  recipientMobile: string; // قبلاً receiverMobile بود
+
+  @IsString()
+  @IsOptional()
+  title?: string; // خانه، محل کار، ...
+
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
+
+  // Legacy fields برای backward compatibility
+  @IsString()
   @IsOptional()
   receiverName?: string;
 
@@ -25,7 +42,6 @@ export class AddressDto {
   @IsOptional()
   receiverMobile?: string;
 
-  // Legacy field - kept for backward compatibility
   @IsString()
   @IsOptional()
   content?: string;

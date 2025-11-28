@@ -112,7 +112,7 @@ export class CartService {
     // Prepare items for calculation
     const itemsData = items.map((item) => ({
       price: item?.product?.price ?? 0,
-      discount: item?.product?.discount ?? 0,
+      discount: (item?.product as any)?.discountPrice || (item?.product as any)?.discount || 0,
       quantity: item?.quantity ?? 0,
     }));
 

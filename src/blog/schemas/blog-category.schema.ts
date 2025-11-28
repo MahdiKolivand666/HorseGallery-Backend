@@ -12,8 +12,11 @@ export class BlogCategory extends Document {
 
   @Prop()
   image: string;
-  @Prop({ unique: true, required: true, type: String })
-  url: string;
+  @Prop({ required: true, type: String })
+  slug: string; // قبلاً url بود
 }
 
 export const BlogCategorySchema = SchemaFactory.createForClass(BlogCategory);
+
+// Indexes
+BlogCategorySchema.index({ slug: 1 }, { unique: true });

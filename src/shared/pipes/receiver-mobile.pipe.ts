@@ -9,9 +9,12 @@ import { convertNumbers } from '../utils/stringUtils';
 @Injectable()
 export class ReceiverMobilePipe implements PipeTransform {
   transform(value: any, metadata: ArgumentMetadata) {
-    if (value?.receiverMobile) {
+    // Support both old (receiverMobile) and new (recipientMobile) field names
+    const mobileField = value?.recipientMobile || value?.receiverMobile;
+    
+    if (mobileField) {
       // Convert Persian/Farsi numbers to English
-      const englishMobile = convertNumbers(value.receiverMobile);
+      const englishMobile = convertNumbers(mobileField);
 
       // Remove any spaces or dashes
       const cleanMobile = englishMobile.replace(/[\s-]/g, '');
@@ -53,7 +56,12 @@ export class ReceiverMobilePipe implements PipeTransform {
         );
       }
 
-      return { ...value, receiverMobile: cleanMobile };
+      // Set both field names for backward compatibility
+      return { 
+        ...value, 
+        recipientMobile: cleanMobile,
+        receiverMobile: cleanMobile, // Legacy support
+      };
     }
     return value;
   }

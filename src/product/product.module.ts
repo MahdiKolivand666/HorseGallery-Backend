@@ -10,6 +10,7 @@ import {
   productCategorySchema,
 } from './schemas/product-category.schema';
 import { SiteProductController } from './controllers/site-product.controller';
+import { PublicProductController, PublicProductCategoryController } from './controllers/public-product.controller';
 import {
   InventoryRecord,
   inventoryRecordSchema,
@@ -20,9 +21,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   controllers: [
+    // Public controllers must be registered FIRST to avoid route conflicts
+    PublicProductController,
+    PublicProductCategoryController,
+    SiteProductController,
     ProductController,
     ProductCategoryController,
-    SiteProductController,
   ],
   exports: [ProductService],
   providers: [ProductService, ProductCategoryService, InventoryRecordService],

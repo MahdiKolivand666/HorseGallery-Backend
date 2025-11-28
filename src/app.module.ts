@@ -33,6 +33,10 @@ import { ProductModule } from './product/product.module';
 import { TicketModule } from './ticket/ticket.module';
 import { ShopModule } from './shop/shop.module';
 import { SharedModule } from './shared/shared.module';
+import { FAQModule } from './faq/faq.module';
+import { GoldPriceModule } from './gold-price/gold-price.module';
+import { AnnouncementModule } from './announcement/announcement.module';
+import { MigrationModule } from './migrations/migration.module';
 import { AuditLogService } from './shared/services/audit-log.service';
 import { ApiKeyService } from './shared/services/api-key.service';
 import { ApiKey, ApiKeySchema } from './shared/schemas/api-key.schema';
@@ -86,6 +90,10 @@ import {
     TicketModule,
     ShopModule,
     SharedModule,
+    FAQModule,
+    GoldPriceModule,
+    AnnouncementModule,
+    MigrationModule,
   ],
   controllers: [AppController],
   providers: [

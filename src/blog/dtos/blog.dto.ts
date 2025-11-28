@@ -19,5 +19,5 @@ export class BlogDto {
 
   @IsString()
   @IsNotEmpty()
-  url: string;
+  slug: string; // قبلاً url بود
 }
