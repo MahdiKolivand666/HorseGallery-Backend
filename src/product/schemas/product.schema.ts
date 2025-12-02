@@ -87,6 +87,35 @@ export class Product extends Document {
   @Prop({ default: false })
   lowCommission?: boolean; // آیا محصول اجرت کم دارد؟
 
+  // Product Type - جدید برای تمایز بین جواهر، سکه و شمش
+  @Prop({ 
+    type: String, 
+    enum: ['jewelry', 'coin', 'melted_gold'], 
+    default: 'jewelry',
+    index: true 
+  })
+  productType: string;
+
+  // Gold Info - اطلاعات اختصاصی سکه و شمش
+  @Prop({
+    type: {
+      weight: Number,        // وزن به گرم
+      purity: String,        // خلوص (مثلاً "24K" یا "999.9")
+      certificate: String,   // شماره گواهی
+      mintYear: Number,      // سال ضرب (برای سکه)
+      manufacturer: String   // تولید کننده (برای شمش)
+    },
+    required: false,
+    _id: false
+  })
+  goldInfo?: {
+    weight?: number;
+    purity?: string;
+    certificate?: string;
+    mintYear?: number;
+    manufacturer?: string;
+  };
+
   // Flags
   @Prop({ default: true })
   isAvailable: boolean;
@@ -154,6 +183,8 @@ productSchema.index({ category: 1, onSale: 1 }); // Compound index for category 
 productSchema.index({ discount: -1 }); // Index for sorting by discount
 productSchema.index({ onSale: 1, discount: -1 }); // Compound index for sale products sorted by discount
 productSchema.index({ subcategory: 1, onSale: 1 }); // Compound index for subcategory + sale
+productSchema.index({ productType: 1 }); // Index for product type filtering
+productSchema.index({ productType: 1, isAvailable: 1 }); // Compound index for product type + availability
 // Indexes for search
 productSchema.index({ name: 1 }); // Index for name search
 productSchema.index({ code: 1 }); // Index for code search

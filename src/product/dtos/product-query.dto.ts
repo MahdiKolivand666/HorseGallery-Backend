@@ -12,5 +12,9 @@ export class ProductQueryDto extends GeneralQueryDto {
 
   @IsOptional()
   @IsString()
+  productType?: string; // jewelry, coin, melted_gold
+
+  @IsOptional()
+  @IsString()
   exclude?: string[];
 }

@@ -57,6 +57,7 @@ export class PublicProductController {
       sortBy: queryParams.sortBy,
       category: queryParams.category,
       subcategory: queryParams.subcategory,
+      productType: queryParams.productType,
       minPrice: toNumber(queryParams.minPrice),
       maxPrice: toNumber(queryParams.maxPrice),
       colors: toArray(queryParams.colors),
@@ -128,11 +129,16 @@ export class PublicProductController {
           ? product._id
           : undefined;
 
-    const relatedProducts = await this.productService.findAll(
+    // Get current product type to filter related products
+    const currentProductType = (product as any).productType || 'jewelry';
+
+    // Get related products from same category AND same productType (up to 8 products)
+    let relatedProducts = await this.productService.findAll(
       {
         category: categoryId,
         exclude: productId ? [productId] : [],
-        limit: 4,
+        limit: 8,
+        productType: currentProductType, // فیلتر بر اساس نوع محصول
       },
       {
         name: 1,
@@ -141,8 +147,75 @@ export class PublicProductController {
         price: 1,
         discountPrice: 1,
         isAvailable: 1,
+        productType: 1, // اضافه کردن productType به response
       },
     );
+
+    // Collect IDs of already included products
+    const excludeIds = productId ? [productId] : [];
+    relatedProducts.products.forEach((p: any) => {
+      const id = typeof p._id === 'object' ? p._id.toString() : p._id;
+      if (id && !excludeIds.includes(id)) {
+        excludeIds.push(id);
+      }
+    });
+
+    // If not enough products in same category, get more from other categories (same productType)
+    if (relatedProducts.products.length < 8) {
+      const needed = 8 - relatedProducts.products.length;
+      const additionalProducts = await this.productService.findAll(
+        {
+          exclude: excludeIds,
+          limit: needed,
+          productType: currentProductType, // همان نوع محصول
+        },
+        {
+          name: 1,
+          slug: 1,
+          images: 1,
+          price: 1,
+          discountPrice: 1,
+          isAvailable: 1,
+          productType: 1,
+        },
+      );
+
+      // Combine and remove duplicates
+      const existingIds = new Set(
+        relatedProducts.products.map((p: any) => {
+          const id = typeof p._id === 'object' ? p._id.toString() : p._id;
+          return id;
+        }),
+      );
+      
+      const newProducts = additionalProducts.products.filter((p: any) => {
+        const id = typeof p._id === 'object' ? p._id.toString() : p._id;
+        return id && !existingIds.has(id);
+      });
+      
+      relatedProducts.products = [...relatedProducts.products, ...newProducts].slice(0, 8);
+    }
+
+    // Ensure at least one related product (if there are other products in database)
+    if (relatedProducts.products.length === 0 && productId) {
+      const fallbackProducts = await this.productService.findAll(
+        {
+          exclude: [productId],
+          limit: 1,
+          productType: currentProductType, // همان نوع محصول
+        },
+        {
+          name: 1,
+          slug: 1,
+          images: 1,
+          price: 1,
+          discountPrice: 1,
+          isAvailable: 1,
+          productType: 1,
+        },
+      );
+      relatedProducts.products = fallbackProducts.products;
+    }
 
     return {
       ...product.toObject(),

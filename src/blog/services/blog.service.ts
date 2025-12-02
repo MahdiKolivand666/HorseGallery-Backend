@@ -133,8 +133,10 @@ export class BlogService {
   ) {
     const blog = await this.blogModel
       .findOne({ slug: url })
-      .populate('category', { title: 1 })
+      .populate('category', { title: 1, slug: 1, _id: 1 })
+      .populate('user', { firstName: 1, lastName: 1, avatar: 1, _id: 1 })
       .select(selectObject)
+      .lean()
       .exec();
 
     if (blog) {
@@ -142,6 +144,46 @@ export class BlogService {
     } else {
       throw new NotFoundException();
     }
+  }
+
+  async findPublicBlogBySlug(slug: string) {
+    // Find blog by slug
+    // Only return blogs that are published (publishedAt exists and is in the past, or publishedAt is null)
+    const blog = await this.blogModel
+      .findOne({
+        slug,
+        $or: [
+          { publishedAt: { $exists: true, $lte: new Date() } },
+          { publishedAt: null }, // Support blogs without publishedAt (consider them published)
+        ],
+      })
+      .populate('category', { title: 1, slug: 1, _id: 1, name: 1 })
+      .populate('user', { firstName: 1, lastName: 1, avatar: 1, _id: 1 })
+      .lean()
+      .exec();
+
+    if (!blog) {
+      throw new NotFoundException('مقاله یافت نشد');
+    }
+
+    // Increment views asynchronously (don't wait for it to improve performance)
+    this.blogModel
+      .findByIdAndUpdate(blog._id, { $inc: { views: 1 } }, { new: false })
+      .exec()
+      .catch((err) => {
+        console.error('Error incrementing blog views:', err);
+      });
+
+    return blog;
+  }
+
+  async incrementViews(slug: string) {
+    const blog = await this.blogModel.findOneAndUpdate(
+      { slug },
+      { $inc: { views: 1 } },
+      { new: true },
+    );
+    return blog;
   }
 
   async create(body: BlogDto, user: string) {

@@ -33,6 +33,7 @@ export class ProductService {
       sort,
       category,
       url,
+      productType,
       exclude,
     } = queryParams;
 
@@ -52,6 +53,11 @@ export class ProductService {
 
     if (category) {
       query.category = category;
+    }
+
+    // Product Type filter
+    if (productType) {
+      query.productType = productType;
     }
 
     if (exclude?.length) {
@@ -81,6 +87,7 @@ export class ProductService {
       sortBy = 'newest',
       category,
       subcategory,
+      productType,
       minPrice,
       maxPrice,
       colors,
@@ -112,10 +119,19 @@ export class ProductService {
       isAvailable: true, // Only show available products
     };
 
+    // Product Type filter - پیش‌فرض: فقط jewelry
+    if (productType) {
+      query.productType = productType;
+    } else {
+      // اگر productType مشخص نشده، فقط محصولات jewelry را برگردان
+      // (سکه و شمش باید صریحاً درخواست شوند)
+      query.productType = 'jewelry';
+    }
+
     // Category filter by slug
     if (category) {
-      const categoryDoc = await this.productModel
-        .db.collection('productcategories')
+      const categoryDoc = await this.productModel.db
+        .collection('productcategories')
         .findOne({ slug: category });
       if (categoryDoc) {
         query.category = categoryDoc._id;
@@ -137,8 +153,8 @@ export class ProductService {
     if (subcategory) {
       // If category is provided, use it to find subcategory
       if (category) {
-        const categoryDoc = await this.productModel
-          .db.collection('productcategories')
+        const categoryDoc = await this.productModel.db
+          .collection('productcategories')
           .findOne({ slug: category });
         if (categoryDoc && categoryDoc.subcategories) {
           const subcat = categoryDoc.subcategories.find(
@@ -160,8 +176,8 @@ export class ProductService {
         }
       } else {
         // If no category, search all categories for subcategory
-        const allCategories = await this.productModel
-          .db.collection('productcategories')
+        const allCategories = await this.productModel.db
+          .collection('productcategories')
           .find({ 'subcategories.slug': subcategory })
           .toArray();
         if (allCategories.length > 0) {
@@ -267,10 +283,7 @@ export class ProductService {
               $toDouble: {
                 $arrayElemAt: [
                   {
-                    $split: [
-                      { $ifNull: ['$weight', '0'] },
-                      ' ',
-                    ],
+                    $split: [{ $ifNull: ['$weight', '0'] }, ' '],
                   },
                   0,
                 ],
@@ -287,10 +300,7 @@ export class ProductService {
               $toDouble: {
                 $arrayElemAt: [
                   {
-                    $split: [
-                      { $ifNull: ['$weight', '0'] },
-                      ' ',
-                    ],
+                    $split: [{ $ifNull: ['$weight', '0'] }, ' '],
                   },
                   0,
                 ],
@@ -315,7 +325,7 @@ export class ProductService {
         { discountPrice: { $exists: true, $ne: null, $gt: 0 } },
         { discount: { $exists: true, $gt: 0 } },
       ];
-      
+
       if (query.$and) {
         query.$and.push({ $or: saleConditions });
       } else if (query.$or) {
@@ -336,7 +346,7 @@ export class ProductService {
       ];
       // If commission field exists and is less than 5%
       lowCommissionConditions.push({ commission: { $exists: true, $lte: 5 } });
-      
+
       if (query.$and) {
         query.$and.push({ $or: lowCommissionConditions });
       } else if (query.$or) {
@@ -370,14 +380,14 @@ export class ProductService {
       'price-desc': { price: -1 },
       'price-low': { price: 1 }, // Alias for price-asc
       'price-high': { price: -1 }, // Alias for price-desc
-      popular: { 
-        popularityScore: -1, 
-        salesCount: -1, 
-        sales: -1, 
-        viewsCount: -1, 
-        views: -1, 
-        reviewsCount: -1, 
-        rating: -1 
+      popular: {
+        popularityScore: -1,
+        salesCount: -1,
+        sales: -1,
+        viewsCount: -1,
+        views: -1,
+        reviewsCount: -1,
+        rating: -1,
       },
       discount: { discount: -1 }, // مرتب‌سازی بر اساس بیشترین تخفیف
     };
@@ -401,8 +411,8 @@ export class ProductService {
       products.map(async (product: any) => {
         if (product.subcategory) {
           // Find the category that contains this subcategory
-          const categoryDoc = await this.productModel
-            .db.collection('productcategories')
+          const categoryDoc = await this.productModel.db
+            .collection('productcategories')
             .findOne({ _id: product.category });
 
           if (categoryDoc && categoryDoc.subcategories) {
@@ -472,9 +482,7 @@ export class ProductService {
         throw new BadRequestException('قیمت تخفیف نمی‌تواند منفی باشد');
       }
       if (body.discountPrice >= body.price) {
-        throw new BadRequestException(
-          'قیمت تخفیف باید کمتر از قیمت اصلی باشد',
-        );
+        throw new BadRequestException('قیمت تخفیف باید کمتر از قیمت اصلی باشد');
       }
     }
 
@@ -630,13 +638,13 @@ export class ProductService {
   async incrementViews(slug: string) {
     const product = await this.productModel.findOneAndUpdate(
       { slug },
-      { 
-        $inc: { 
-          views: 1, 
-          viewsCount: 1 
-        } 
+      {
+        $inc: {
+          views: 1,
+          viewsCount: 1,
+        },
       },
-      { new: true }
+      { new: true },
     );
     if (!product) {
       throw new NotFoundException('Product not found');
@@ -647,13 +655,13 @@ export class ProductService {
   async incrementSales(productId: string, quantity: number = 1) {
     const product = await this.productModel.findByIdAndUpdate(
       productId,
-      { 
-        $inc: { 
-          sales: quantity, 
-          salesCount: quantity 
-        } 
+      {
+        $inc: {
+          sales: quantity,
+          salesCount: quantity,
+        },
       },
-      { new: true }
+      { new: true },
     );
     if (!product) {
       throw new NotFoundException('Product not found');
@@ -670,16 +678,18 @@ export class ProductService {
     }
 
     // Formula: (salesCount * 5) + (viewsCount * 1) + (rating * 10)
-    const salesCount = (product as any).salesCount || (product as any).sales || 0;
-    const viewsCount = (product as any).viewsCount || (product as any).views || 0;
+    const salesCount =
+      (product as any).salesCount || (product as any).sales || 0;
+    const viewsCount =
+      (product as any).viewsCount || (product as any).views || 0;
     const rating = product.rating || 0;
 
-    const popularityScore = (salesCount * 5) + (viewsCount * 1) + (rating * 10);
+    const popularityScore = salesCount * 5 + viewsCount * 1 + rating * 10;
 
     await this.productModel.findByIdAndUpdate(
       productId,
       { popularityScore },
-      { new: true }
+      { new: true },
     );
 
     return popularityScore;
@@ -749,8 +759,8 @@ export class ProductService {
       products.map(async (product: any) => {
         if (product.subcategory) {
           // Find the category that contains this subcategory
-          const categoryDoc = await this.productModel
-            .db.collection('productcategories')
+          const categoryDoc = await this.productModel.db
+            .collection('productcategories')
             .findOne({ _id: product.category });
 
           if (categoryDoc && categoryDoc.subcategories) {

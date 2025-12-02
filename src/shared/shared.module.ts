@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { SecurityLog, SecurityLogSchema } from './schemas/security-log.schema';
 import { SecurityLogService } from './services/security-log.service';
 import { SecurityLogController } from './controllers/security-log.controller';
+import { ImagesController } from './controllers/images.controller';
 
 /**
  * Shared module for common services and controllers
@@ -24,7 +25,7 @@ import { SecurityLogController } from './controllers/security-log.controller';
       { name: SecurityLog.name, schema: SecurityLogSchema },
     ]),
   ],
-  controllers: [SecurityLogController],
+  controllers: [SecurityLogController, ImagesController],
   providers: [SecurityLogService],
   exports: [SecurityLogService],
 })

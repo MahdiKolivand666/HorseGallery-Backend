@@ -22,15 +22,44 @@ export class PublicBlogController {
   @ApiResponse({ status: 200, description: 'Blog post retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Blog post not found' })
   async findOne(@Param('slug') slug: string) {
-    const blog = await this.blogService.findOneWithUrl(slug, {
-      __v: 0,
-    });
+    // Use findPublicBlogBySlug which:
+    // 1. Only returns published blogs
+    // 2. Automatically increments views
+    // 3. Populates category and author
+    const blog = await this.blogService.findPublicBlogBySlug(slug);
 
-    // Populate author and category
-    await blog.populate('user', { firstName: 1, lastName: 1, avatar: 1 });
-    await blog.populate('category', { title: 1, slug: 1 });
-
-    return blog;
+    // Map response to match frontend expectations
+    const blogData = blog as any;
+    return {
+      _id: blogData._id,
+      title: blogData.title,
+      slug: blogData.slug,
+      content: blogData.content,
+      excerpt: blogData.excerpt,
+      image: blogData.image,
+      category: blogData.category
+        ? {
+            _id: blogData.category._id,
+            name: blogData.category.title || blogData.category.name,
+            slug: blogData.category.slug,
+          }
+        : null,
+      author: blogData.user
+        ? {
+            _id: blogData.user._id,
+            firstName: blogData.user.firstName,
+            lastName: blogData.user.lastName,
+            avatar: blogData.user.avatar,
+          }
+        : null,
+      tags: blogData.tags || [],
+      views: blogData.views || 0,
+      likes: blogData.likes || 0,
+      isFeatured: blogData.isFeatured || false,
+      publishedAt: blogData.publishedAt,
+      createdAt: blogData.createdAt,
+      updatedAt: blogData.updatedAt,
+    };
   }
 }
 

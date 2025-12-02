@@ -32,6 +32,11 @@ export class PublicProductQueryDto {
   @IsString()
   subcategory?: string; // slug of subcategory
 
+  // Product Type (jewelry, coin, melted_gold)
+  @IsOptional()
+  @IsString()
+  productType?: string;
+
   // Price Range
   @IsOptional()
   @Type(() => Number)
