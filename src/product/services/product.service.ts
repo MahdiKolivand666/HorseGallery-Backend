@@ -312,8 +312,9 @@ export class ProductService {
       }
     }
 
-    // Stock filter
-    if (inStock === true) {
+    // Stock filter (only apply if not using sortBy inStock/outOfStock)
+    // Note: inStock/outOfStock sorting will handle stock filtering separately
+    if (inStock === true && sortBy !== 'inStock' && sortBy !== 'outOfStock') {
       query.stock = { $gt: 0 };
     }
 
@@ -372,26 +373,82 @@ export class ProductService {
       query.isGift = isGift;
     }
 
-    // Sort mapping
-    const sortOptions: Record<string, any> = {
-      newest: { createdAt: -1 },
-      oldest: { createdAt: 1 },
-      'price-asc': { price: 1 },
-      'price-desc': { price: -1 },
-      'price-low': { price: 1 }, // Alias for price-asc
-      'price-high': { price: -1 }, // Alias for price-desc
-      popular: {
-        popularityScore: -1,
-        salesCount: -1,
-        sales: -1,
-        viewsCount: -1,
-        views: -1,
-        reviewsCount: -1,
-        rating: -1,
-      },
-      discount: { discount: -1 }, // مرتب‌سازی بر اساس بیشترین تخفیف
-    };
-    const sort = sortOptions[sortBy] || sortOptions.newest;
+    // Sort mapping - با پشتیبانی از گزینه‌های مخصوص سکه و شمش
+    let sort: any;
+    
+    // اگر productType سکه یا شمش است، از گزینه‌های مخصوص استفاده کن
+    if (productType === 'coin' || productType === 'melted_gold') {
+      switch (sortBy) {
+        case 'inStock':
+          // موجود: فیلتر موجود + مرتب بر اساس وزن (از بیشترین به کمترین)
+          query.stock = { $gt: 0 };
+          sort = { 'goldInfo.weight': -1, createdAt: -1 };
+          break;
+          
+        case 'outOfStock':
+          // ناموجود: فیلتر ناموجود + مرتب بر اساس stock
+          query.stock = { $lte: 0 };
+          sort = { stock: 1, createdAt: -1 };
+          break;
+          
+        case 'weight-desc':
+          // از بیشترین وزن به کمترین
+          // فقط محصولاتی که goldInfo.weight دارند
+          query['goldInfo.weight'] = { $exists: true, $ne: null };
+          sort = { 'goldInfo.weight': -1, createdAt: -1 };
+          break;
+          
+        case 'weight-asc':
+          // از کمترین وزن به بیشترین
+          // فقط محصولاتی که goldInfo.weight دارند
+          query['goldInfo.weight'] = { $exists: true, $ne: null };
+          sort = { 'goldInfo.weight': 1, createdAt: -1 };
+          break;
+          
+        default:
+          // برای سایر گزینه‌ها از sortOptions استفاده کن
+          const sortOptions: Record<string, any> = {
+            newest: { createdAt: -1 },
+            oldest: { createdAt: 1 },
+            'price-asc': { price: 1 },
+            'price-desc': { price: -1 },
+            'price-low': { price: 1 },
+            'price-high': { price: -1 },
+            popular: {
+              popularityScore: -1,
+              salesCount: -1,
+              sales: -1,
+              viewsCount: -1,
+              views: -1,
+              reviewsCount: -1,
+              rating: -1,
+            },
+            discount: { discount: -1 },
+          };
+          sort = sortOptions[sortBy] || sortOptions.newest;
+      }
+    } else {
+      // برای جواهرات از گزینه‌های قبلی استفاده کن
+      const sortOptions: Record<string, any> = {
+        newest: { createdAt: -1 },
+        oldest: { createdAt: 1 },
+        'price-asc': { price: 1 },
+        'price-desc': { price: -1 },
+        'price-low': { price: 1 }, // Alias for price-asc
+        'price-high': { price: -1 }, // Alias for price-desc
+        popular: {
+          popularityScore: -1,
+          salesCount: -1,
+          sales: -1,
+          viewsCount: -1,
+          views: -1,
+          reviewsCount: -1,
+          rating: -1,
+        },
+        discount: { discount: -1 }, // مرتب‌سازی بر اساس بیشترین تخفیف
+      };
+      sort = sortOptions[sortBy] || sortOptions.newest;
+    }
 
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.min(100, Math.max(1, Number(limit)));

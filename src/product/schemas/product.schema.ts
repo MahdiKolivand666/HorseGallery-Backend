@@ -35,7 +35,11 @@ export class Product extends Document {
   })
   discountPrice?: number | null; // قبلاً discount بود
 
-  @Prop({ default: 0, min: [0, 'درصد تخفیف نمی‌تواند منفی باشد'], max: [100, 'درصد تخفیف نمی‌تواند بیشتر از 100 باشد'] })
+  @Prop({
+    default: 0,
+    min: [0, 'درصد تخفیف نمی‌تواند منفی باشد'],
+    max: [100, 'درصد تخفیف نمی‌تواند بیشتر از 100 باشد'],
+  })
   discount?: number; // درصد تخفیف (0-100)
 
   @Prop({ default: false })
@@ -88,25 +92,25 @@ export class Product extends Document {
   lowCommission?: boolean; // آیا محصول اجرت کم دارد؟
 
   // Product Type - جدید برای تمایز بین جواهر، سکه و شمش
-  @Prop({ 
-    type: String, 
-    enum: ['jewelry', 'coin', 'melted_gold'], 
+  @Prop({
+    type: String,
+    enum: ['jewelry', 'coin', 'melted_gold'],
     default: 'jewelry',
-    index: true 
+    index: true,
   })
   productType: string;
 
   // Gold Info - اطلاعات اختصاصی سکه و شمش
   @Prop({
     type: {
-      weight: Number,        // وزن به گرم
-      purity: String,        // خلوص (مثلاً "24K" یا "999.9")
-      certificate: String,   // شماره گواهی
-      mintYear: Number,      // سال ضرب (برای سکه)
-      manufacturer: String   // تولید کننده (برای شمش)
+      weight: Number, // وزن به گرم
+      purity: String, // خلوص (مثلاً "24K" یا "999.9")
+      certificate: String, // شماره گواهی
+      mintYear: Number, // سال ضرب (برای سکه)
+      manufacturer: String, // تولید کننده (برای شمش)
     },
     required: false,
-    _id: false
+    _id: false,
   })
   goldInfo?: {
     weight?: number;
@@ -194,7 +198,11 @@ productSchema.index({ isAvailable: 1, stock: 1 }); // Compound index for availab
 // Middleware: محاسبه خودکار discount و onSale قبل از ذخیره
 productSchema.pre('save', function (next) {
   // محاسبه درصد تخفیف
-  if (this.discountPrice !== null && this.discountPrice !== undefined && this.price) {
+  if (
+    this.discountPrice !== null &&
+    this.discountPrice !== undefined &&
+    this.price
+  ) {
     if (this.discountPrice < this.price) {
       this.discount = Math.round(
         ((this.price - this.discountPrice) / this.price) * 100,
@@ -222,30 +230,42 @@ productSchema.pre('save', function (next) {
 // Middleware: محاسبه خودکار برای findOneAndUpdate
 productSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate() as any;
-  
+
   // اگر price یا discountPrice تغییر کرده، discount را محاسبه کن
-  if (update.price !== undefined || update.discountPrice !== undefined || update.$set?.price !== undefined || update.$set?.discountPrice !== undefined) {
+  if (
+    update.price !== undefined ||
+    update.discountPrice !== undefined ||
+    update.$set?.price !== undefined ||
+    update.$set?.discountPrice !== undefined
+  ) {
     // برای findOneAndUpdate باید از $set استفاده کنیم
     if (!update.$set) {
       update.$set = {};
     }
-    
+
     // اگر price در update وجود دارد، از آن استفاده کن، وگرنه از document موجود
-    let price = update.$set.price !== undefined ? update.$set.price : update.price;
-    let discountPrice = update.$set.discountPrice !== undefined ? update.$set.discountPrice : update.discountPrice;
-    
+    let price =
+      update.$set.price !== undefined ? update.$set.price : update.price;
+    let discountPrice =
+      update.$set.discountPrice !== undefined
+        ? update.$set.discountPrice
+        : update.discountPrice;
+
     // اگر price در update نیست، باید از document موجود بگیریم
     if (price === undefined) {
-      const doc = await this.model.findOne(this.getQuery()).lean() as any;
+      const doc = (await this.model.findOne(this.getQuery()).lean()) as any;
       price = doc?.price;
     }
-    
+
     // اگر discountPrice در update نیست، از document موجود بگیریم
-    if (discountPrice === undefined && update.$set.discountPrice === undefined) {
-      const doc = await this.model.findOne(this.getQuery()).lean() as any;
+    if (
+      discountPrice === undefined &&
+      update.$set.discountPrice === undefined
+    ) {
+      const doc = (await this.model.findOne(this.getQuery()).lean()) as any;
       discountPrice = doc?.discountPrice;
     }
-    
+
     if (discountPrice !== null && discountPrice !== undefined && price) {
       if (discountPrice < price) {
         update.$set.discount = Math.round(
@@ -264,7 +284,7 @@ productSchema.pre('findOneAndUpdate', async function (next) {
       update.$set.onSale = false;
       update.$set.discountPrice = null;
     }
-    
+
     // حذف فیلدهای مستقیم از update و انتقال به $set
     if (update.price !== undefined) {
       update.$set.price = update.price;
@@ -274,6 +294,6 @@ productSchema.pre('findOneAndUpdate', async function (next) {
       delete update.discountPrice;
     }
   }
-  
+
   next();
 });
