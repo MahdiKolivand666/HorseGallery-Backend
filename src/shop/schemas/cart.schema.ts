@@ -7,8 +7,11 @@ import { User } from 'src/user/schemas/user.schema';
 })
 export class Cart extends Document {
   declare _id: Types.ObjectId;
-  @Prop({ required: true, ref: User.name, type: Types.ObjectId })
-  user: string;
+  @Prop({ required: false, ref: User.name, type: Types.ObjectId })
+  user?: string; // برای کاربران لاگین شده
+
+  @Prop({ required: false, index: true })
+  sessionId?: string; // برای مهمان‌ها
 
   @Prop({ default: 0 })
   subtotal: number;
@@ -18,6 +21,33 @@ export class Cart extends Document {
 
   @Prop({ default: 0 })
   total: number;
+
+  @Prop({ type: Date, default: Date.now })
+  lastActivityAt: Date; // آخرین زمان فعالیت در سبد خرید
+
+  @Prop({ type: Date })
+  expiresAt: Date; // زمان انقضای سبد خرید (10 دقیقه بعد از lastActivityAt)
 }
 
 export const cartSchema = SchemaFactory.createForClass(Cart);
+
+// Validation: یا user یا sessionId باید وجود داشته باشد
+cartSchema.pre('save', function (next) {
+  if (!this.user && !this.sessionId) {
+    return next(new Error('سبد خرید باید یا user یا sessionId داشته باشد'));
+  }
+  
+  // تنظیم expiresAt: 10 دقیقه بعد از lastActivityAt
+  if (!this.expiresAt || this.isModified('lastActivityAt')) {
+    const expirationTime = new Date(this.lastActivityAt || Date.now());
+    expirationTime.setMinutes(expirationTime.getMinutes() + 10);
+    this.expiresAt = expirationTime;
+  }
+  
+  next();
+});
+
+// Index برای query سریع‌تر سبدهای منقضی شده
+cartSchema.index({ expiresAt: 1 });
+cartSchema.index({ user: 1 });
+cartSchema.index({ sessionId: 1 });

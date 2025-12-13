@@ -109,8 +109,10 @@ export class PublicProductController {
     // Increment views count when product is viewed
     await this.productService.incrementViews(slug);
 
+    // دریافت محصول با productType (برای فیلتر کردن محصولات مرتبط)
     const product = await this.productService.findOneWithUrl(slug, {
       __v: 0,
+      // productType همیشه باید برگردانده شود تا بتوانیم محصولات مرتبط را فیلتر کنیم
     });
 
     // Get related products from same category
@@ -130,15 +132,20 @@ export class PublicProductController {
           : undefined;
 
     // Get current product type to filter related products
+    // ⚠️ مهم: فقط محصولات با همان productType نمایش داده می‌شوند
     const currentProductType = (product as any).productType || 'jewelry';
 
     // Get related products from same category AND same productType (up to 8 products)
+    // ⚠️ فیلتر productType تضمین می‌کند که:
+    // - در صفحه جزئیات سکه، فقط سکه‌های مرتبط نمایش داده می‌شوند
+    // - در صفحه جزئیات شمش، فقط شمش‌های مرتبط نمایش داده می‌شوند
+    // - در صفحه جزئیات جواهرات، فقط جواهرات مرتبط نمایش داده می‌شوند
     let relatedProducts = await this.productService.findAll(
       {
         category: categoryId,
         exclude: productId ? [productId] : [],
         limit: 8,
-        productType: currentProductType, // فیلتر بر اساس نوع محصول
+        productType: currentProductType, // فیلتر بر اساس نوع محصول - اجباری!
       },
       {
         name: 1,
@@ -217,8 +224,10 @@ export class PublicProductController {
       relatedProducts.products = fallbackProducts.products;
     }
 
+    // product از findOneWithUrl یک plain object است (با .lean())
+    // پس نیازی به .toObject() نیست
     return {
-      ...product.toObject(),
+      ...product,
       relatedProducts: relatedProducts.products,
     };
   }

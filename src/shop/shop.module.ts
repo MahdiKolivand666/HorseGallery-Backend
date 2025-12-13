@@ -16,6 +16,8 @@ import { OrderService } from './services/order.service';
 import { ProductModule } from 'src/product/product.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CartCleanupService } from './services/cart-cleanup.service';
+import { OptionalJwtGuard } from 'src/shared/guards/optional-jwt.guard';
 
 @Module({
   controllers: [
@@ -25,7 +27,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     SiteOrderController,
     OrderController,
   ],
-  providers: [CartService, ShippingService, OrderService],
+  providers: [
+    CartService,
+    ShippingService,
+    OrderService,
+    CartCleanupService,
+    OptionalJwtGuard, // ✅ اضافه شد برای استفاده در CartController
+  ],
   imports: [
     ConfigModule,
     JwtModule.registerAsync({

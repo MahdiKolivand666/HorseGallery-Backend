@@ -45,6 +45,7 @@ import {
   SecurityLog,
   SecurityLogSchema,
 } from './shared/schemas/security-log.schema';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -52,6 +53,9 @@ import {
       envFilePath: '.env',
       isGlobal: true,
     }),
+
+    // ScheduleModule for cron jobs
+    ScheduleModule.forRoot(),
 
     // ThrottlerModule and ThrottlerGuard for rate limiting
     ThrottlerModule.forRoot([

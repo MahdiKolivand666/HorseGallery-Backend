@@ -22,6 +22,54 @@ export class ProductService {
     private readonly inventoryRecordService: InventoryRecordService,
   ) {}
 
+  /**
+   * محاسبه discount و onSale برای یک محصول
+   * این function مطمئن می‌شود که discount و onSale همیشه محاسبه شده و در response هستند
+   */
+  private calculateDiscountAndOnSale(product: any): {
+    discount: number;
+    onSale: boolean;
+  } {
+    const price = product?.price || 0;
+    const discountPrice = product?.discountPrice;
+
+    // بررسی اینکه آیا محصول تخفیف دارد
+    const hasDiscount =
+      discountPrice !== null &&
+      discountPrice !== undefined &&
+      discountPrice < price &&
+      price > 0;
+
+    // محاسبه درصد تخفیف
+    let discount = 0;
+    if (hasDiscount) {
+      discount = Math.round(((price - discountPrice) / price) * 100);
+    }
+
+    // تنظیم onSale
+    const onSale = hasDiscount && discount > 0;
+
+    return { discount, onSale };
+  }
+
+  /**
+   * اضافه کردن discount و onSale به یک محصول یا آرایه محصولات
+   */
+  private enrichProductWithDiscount(product: any): any {
+    if (!product) return product;
+
+    const { discount, onSale } = this.calculateDiscountAndOnSale(product);
+    return {
+      ...product,
+      discount,
+      onSale,
+    };
+  }
+
+  private enrichProductsWithDiscount(products: any[]): any[] {
+    return products.map((product) => this.enrichProductWithDiscount(product));
+  }
+
   async findAll(
     queryParams: ProductQueryDto,
     selectObject: Record<string, 0 | 1> = { __v: 0 },
@@ -55,9 +103,13 @@ export class ProductService {
       query.category = category;
     }
 
-    // Product Type filter
+    // Product Type filter - پیش‌فرض: فقط jewelry
     if (productType) {
       query.productType = productType;
+    } else {
+      // اگر productType مشخص نشده، فقط محصولات jewelry را برگردان
+      // (سکه و شمش باید صریحاً درخواست شوند)
+      query.productType = 'jewelry';
     }
 
     if (exclude?.length) {
@@ -73,11 +125,15 @@ export class ProductService {
       .select(selectObject)
       .skip(page - 1)
       .limit(limit)
+      .lean()
       .exec();
 
     const count = await this.productModel.countDocuments(query);
 
-    return { count, products };
+    // ✅ اضافه کردن discount و onSale به همه محصولات
+    const enrichedProducts = this.enrichProductsWithDiscount(products);
+
+    return { count, products: enrichedProducts };
   }
 
   async findPublicProducts(queryParams: PublicProductQueryDto) {
@@ -492,8 +548,13 @@ export class ProductService {
     const total = await this.productModel.countDocuments(query);
     const totalPages = Math.ceil(total / limitNum);
 
+    // ✅ اضافه کردن discount و onSale به همه محصولات
+    const enrichedProducts = this.enrichProductsWithDiscount(
+      productsWithSubcategory,
+    );
+
     return {
-      data: productsWithSubcategory,
+      data: enrichedProducts,
       pagination: {
         currentPage: pageNum,
         totalPages,
@@ -508,9 +569,11 @@ export class ProductService {
       .findOne({ _id: id })
       .populate('category', { name: 1, title: 1 })
       .select(selectObject)
+      .lean()
       .exec();
     if (product) {
-      return product;
+      // ✅ اضافه کردن discount و onSale به محصول
+      return this.enrichProductWithDiscount(product);
     } else {
       throw new NotFoundException();
     }
@@ -524,9 +587,11 @@ export class ProductService {
       .findOne({ slug: url })
       .populate('category', { name: 1, title: 1 })
       .select(selectObject)
+      .lean()
       .exec();
     if (product) {
-      return product;
+      // ✅ اضافه کردن discount و onSale به محصول
+      return this.enrichProductWithDiscount(product);
     } else {
       throw new NotFoundException();
     }
@@ -841,11 +906,16 @@ export class ProductService {
     const totalItems = await this.productModel.countDocuments(searchFilter);
     const totalPages = Math.ceil(totalItems / limitNum);
 
+    // ✅ اضافه کردن discount و onSale به همه محصولات
+    const enrichedProducts = this.enrichProductsWithDiscount(
+      productsWithSubcategory,
+    );
+
     // Return results
     return {
       success: true,
       query: searchQuery,
-      data: productsWithSubcategory,
+      data: enrichedProducts,
       pagination: {
         currentPage: pageNum,
         totalPages,

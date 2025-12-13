@@ -1,13 +1,21 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { randomBytes } from 'crypto';
 import { Cart } from '../schemas/cart.schema';
 import { CartItem } from '../schemas/cart-item.schema';
 import { newCartDto } from '../dtos/new-cart.dto';
 import { CartItemDto } from '../dtos/cart-item.dto';
 import { EditCartItemDto } from '../dtos/edit-cart-item.dto';
 import { DeleteCartItemDto } from '../dtos/delete-cat-item.dto';
-import { calculateCartTotal } from 'src/shared/utils/price-calculator';
+import { ProductService } from 'src/product/services/product.service';
+import { CartCleanupService } from './cart-cleanup.service';
 
 @Injectable()
 export class CartService {
@@ -16,24 +24,56 @@ export class CartService {
   constructor(
     @InjectModel(Cart.name) private readonly cartModel: Model<Cart>,
     @InjectModel(CartItem.name) private readonly cartItemModel: Model<CartItem>,
+    private readonly productService: ProductService,
+    private readonly cartCleanupService: CartCleanupService,
   ) {}
 
-  async createNewCart(body: newCartDto, user: string) {
+  async createNewCart(body: newCartDto, user?: string, sessionId?: string) {
+    // بررسی وجود محصول و موجودی
+    const product = await this.productService.findOne(body.productId);
+
+    if (!product.isAvailable) {
+      throw new BadRequestException('این محصول در حال حاضر موجود نیست');
+    }
+
+    const requestedQuantity = body.quantity || 1;
+
+    if (product.stock < requestedQuantity) {
+      throw new BadRequestException(
+        `موجودی ${product.name} کافی نیست. موجودی فعلی: ${product.stock}`,
+      );
+    }
+
+    // دریافت قیمت نهایی محصول (با تخفیف)
+    const finalPrice = product.discountPrice || product.price;
+
     const newCart = new this.cartModel({
-      user: user,
+      user: user || undefined,
+      sessionId: sessionId || undefined,
     });
+
     const newCartItem = new this.cartItemModel({
       product: body.productId,
-      quantity: body.quantity || 1,
+      quantity: requestedQuantity,
       cart: newCart._id.toString(),
+      price: finalPrice,
+      size: body.size,
     });
 
     await newCart.save();
     await newCartItem.save();
-    return this.getCartDetails(newCart._id.toString());
+    return this.getCartDetails(newCart._id.toString(), user, sessionId);
   }
 
   async createCartItem(body: CartItemDto) {
+    // اگر price مشخص نشده باشد، از محصول بگیر
+    if (!body.price) {
+      const product = await this.productService.findOne(
+        (body.product as any).toString() || body.product,
+      );
+      body.price = product.discountPrice || product.price;
+    }
+
     const newCartItem = new this.cartItemModel(body);
     await newCartItem.save();
     return newCartItem;
@@ -42,26 +82,53 @@ export class CartService {
   async findCartItem(id: string) {
     const items = await this.cartItemModel
       .find({ cart: id })
-      .populate('product', { title: 1, thumbnail: 1, price: 1, discount: 1 })
-      .select({ product: 1, quantity: 1 })
+      .populate('product', {
+        name: 1,
+        title: 1,
+        slug: 1,
+        code: 1,
+        price: 1,
+        discountPrice: 1,
+        discount: 1,
+        images: 1,
+        stock: 1,
+        weight: 1,
+        productType: 1,
+        goldInfo: 1,
+        category: 1,
+      })
+      .select({ product: 1, quantity: 1, size: 1, price: 1 })
       .sort({ createdAt: -1 })
       .exec();
 
-    if (items) {
-      return items;
-    } else {
-      throw new NotFoundException();
-    }
+    // ✅ اگر آیتمی وجود نداشت، array خالی برگردان (خطا نده)
+    return items || [];
   }
 
-  async findCart(id: string) {
+  async findCart(id: string, userId?: string, sessionId?: string) {
     const cart = await this.cartModel.findOne({ _id: id }).exec();
 
-    if (cart) {
-      return cart;
-    } else {
-      throw new NotFoundException();
+    if (!cart) {
+      throw new NotFoundException('سبد خرید یافت نشد');
     }
+
+    // بررسی authorization: فقط صاحب سبد می‌تواند به آن دسترسی داشته باشد
+    if (userId) {
+      // اگر userId وجود داشت، باید سبد متعلق به این کاربر باشد
+      if (!cart.user || cart.user.toString() !== userId) {
+        throw new ForbiddenException('دسترسی به این سبد خرید ندارید');
+      }
+    } else if (sessionId) {
+      // اگر sessionId وجود داشت، باید سبد متعلق به این session باشد
+      if (!cart.sessionId || cart.sessionId !== sessionId) {
+        throw new ForbiddenException('دسترسی به این سبد خرید ندارید');
+      }
+    } else {
+      // اگر هیچ کدام وجود نداشت، دسترسی مجاز نیست
+      throw new ForbiddenException('دسترسی به این سبد خرید ندارید');
+    }
+
+    return cart;
   }
 
   async findCartByUser(userId: string) {
@@ -77,6 +144,66 @@ export class CartService {
     }
   }
 
+  async findCartBySession(sessionId: string) {
+    const cart = await this.cartModel
+      .findOne({ sessionId: sessionId })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (cart) {
+      return cart;
+    } else {
+      return null; // Return null if no cart exists for session
+    }
+  }
+
+  async mergeCarts(userId: string, sessionId: string) {
+    // پیدا کردن سبد مهمان
+    const guestCart = await this.findCartBySession(sessionId);
+
+    if (!guestCart) {
+      return null; // سبد مهمان وجود ندارد
+    }
+
+    // پیدا کردن سبد کاربر
+    const userCart = await this.findCartByUser(userId);
+
+    if (!userCart) {
+      // اگر سبد کاربر وجود ندارد، سبد مهمان را به کاربر منتقل کن
+      guestCart.user = userId;
+      guestCart.sessionId = undefined;
+      await guestCart.save();
+      return guestCart;
+    }
+
+    // اگر هر دو وجود دارند، آیتم‌های سبد مهمان را به سبد کاربر اضافه کن
+    const guestItems = await this.findCartItem(guestCart._id.toString());
+
+    for (const item of guestItems) {
+      const productId =
+        (item.product as any)._id?.toString() ||
+        (item.product as any).toString();
+
+      try {
+        await this.addItemToCart(userCart._id.toString(), {
+          productId,
+          quantity: item.quantity,
+          size: item.size,
+        });
+      } catch (error) {
+        // اگر خطا داد (مثلاً موجودی کافی نیست)، ادامه بده
+        this.logger.warn(
+          `Failed to merge item ${productId} to user cart: ${error.message}`,
+        );
+      }
+    }
+
+    // سبد مهمان را حذف کن (بدون authorization check چون قبلاً بررسی شده)
+    await this.removeCartAndItems(guestCart._id.toString());
+
+    return userCart;
+  }
+
   async getUserCart(userId: string) {
     const cart = await this.findCartByUser(userId);
 
@@ -84,17 +211,247 @@ export class CartService {
       throw new NotFoundException('سبد خرید یافت نشد');
     }
 
-    return this.getCartDetails(cart._id.toString());
+    return this.getCartDetails(cart._id.toString(), userId, undefined);
   }
-  async getCartDetails(id: string) {
-    const cart = await this.findCart(id);
+
+  /**
+   * پیدا کردن یا ایجاد سبد خرید بر اساس user یا sessionId
+   */
+  async findOrCreateCart(userId?: string, sessionId?: string) {
+    // اگر userId وجود داشت، سبد کاربر را پیدا کن
+    if (userId) {
+      const cart = await this.findCartByUser(userId);
+      if (cart) {
+        return cart;
+      }
+    }
+
+    // اگر sessionId وجود داشت، سبد مهمان را پیدا کن
+    if (sessionId) {
+      const cart = await this.findCartBySession(sessionId);
+      if (cart) {
+        return cart;
+      }
+    }
+
+    // اگر هیچ کدام وجود نداشت، null برگردان
+    return null;
+  }
+
+  /**
+   * دریافت سبد خرید (برای کاربر یا مهمان)
+   */
+  async getCart(userId?: string, sessionId?: string) {
+    // اگر user وجود نداشت و sessionId هم وجود نداشت، یک sessionId ایجاد کن
+    let finalSessionId = sessionId;
+    if (!userId && !sessionId) {
+      finalSessionId = this.generateSessionId();
+      this.logger.debug(
+        `Generated new sessionId for getCart: ${finalSessionId}`,
+      );
+    }
+
+    const cart = await this.findOrCreateCart(userId, finalSessionId);
+
+    if (!cart) {
+      // اگر سبد وجود نداشت، یک سبد خالی برگردان
+      const emptyResponse = {
+        cart: null,
+        items: [],
+        itemCount: 0,
+        totalItems: 0,
+        totalPrice: 0,
+        expiresAt: null,
+        remainingSeconds: 0,
+        prices: {
+          totalWithoutDiscount: 0,
+          totalWithDiscount: 0,
+          totalSavings: 0,
+          savingsPercentage: 0,
+        },
+      };
+
+      // اگر sessionId جدید ایجاد شده بود، آن را به response اضافه کن
+      if (!sessionId && finalSessionId) {
+        return {
+          ...emptyResponse,
+          sessionId: finalSessionId,
+        };
+      }
+
+      return emptyResponse;
+    }
+
+    const result = await this.getCartDetails(
+      cart._id.toString(),
+      userId,
+      finalSessionId,
+    );
+
+    // اگر sessionId جدید ایجاد شده بود، آن را به response اضافه کن
+    if (!sessionId && finalSessionId) {
+      return {
+        ...result,
+        sessionId: finalSessionId,
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * ایجاد sessionId جدید برای مهمان
+   */
+  private generateSessionId(): string {
+    return `session_${Date.now()}_${randomBytes(16).toString('hex')}`;
+  }
+
+  /**
+   * ایجاد سبد خرید جدید (برای کاربر یا مهمان)
+   */
+  async createCart(body: newCartDto, userId?: string, sessionId?: string) {
+    // اگر user وجود نداشت و sessionId هم وجود نداشت، یک sessionId ایجاد کن
+    let finalSessionId = sessionId;
+    if (!userId && !sessionId) {
+      finalSessionId = this.generateSessionId();
+      this.logger.debug(`Generated new sessionId: ${finalSessionId}`);
+    }
+
+    // بررسی اینکه آیا سبدی وجود دارد یا نه
+    const existingCart = await this.findOrCreateCart(userId, finalSessionId);
+
+    if (existingCart) {
+      // اگر سبد وجود داشت، محصول را به آن اضافه کن
+      const result = await this.addItemToCart(
+        existingCart._id.toString(),
+        body,
+        userId,
+        finalSessionId,
+      );
+
+      // اگر sessionId جدید ایجاد شده بود، آن را به response اضافه کن
+      if (!sessionId && finalSessionId) {
+        return {
+          ...result,
+          sessionId: finalSessionId, // برای Frontend تا در Cookie ذخیره کند
+        };
+      }
+
+      return result;
+    }
+
+    // اگر سبد وجود نداشت، سبد جدید ایجاد کن
+    const result = await this.createNewCart(body, userId, finalSessionId);
+
+    // اگر sessionId جدید ایجاد شده بود، آن را به response اضافه کن
+    if (!sessionId && finalSessionId) {
+      return {
+        ...result,
+        sessionId: finalSessionId, // برای Frontend تا در Cookie ذخیره کند
+      };
+    }
+
+    return result;
+  }
+  async getCartDetails(id: string, userId?: string, sessionId?: string) {
+    const cart = await this.findCart(id, userId, sessionId);
+
+    // بررسی انقضای سبد خرید
+    if (cart.expiresAt && cart.expiresAt < new Date()) {
+      // سبد منقضی شده، پاک کن
+      await this.removeCartAndItems(id, userId, sessionId);
+      throw new NotFoundException('سبد خرید منقضی شده است');
+    }
+
+    // به‌روزرسانی زمان فعالیت
+    await this.cartCleanupService.updateCartActivity(id);
+
     const items = await this.findCartItem(id);
 
     if (cart) {
       const prices = await this.getPrices(id);
+
+      // محاسبه تعداد کل آیتم‌ها (مجموع quantity)
+      const totalItems = items.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0,
+      );
+
+      // تعداد آیتم‌های مختلف
+      const itemCount = items.length;
+
+      // محاسبه زمان باقی‌مانده تا انقضا (به ثانیه)
+      const now = new Date();
+      const expiresAt = cart.expiresAt || new Date();
+      const remainingSeconds = Math.max(
+        0,
+        Math.floor((expiresAt.getTime() - now.getTime()) / 1000),
+      );
+
+      // ✅ اضافه کردن discount و originalPrice به هر item
+      const itemsWithDiscount = items.map((item) => {
+        const product = item?.product as any;
+        const quantity = item?.quantity || 1;
+        const savedPrice = (item as any)?.price; // قیمت واحد ذخیره شده در CartItem
+
+        // محاسبه قیمت اصلی محصول (بدون تخفیف)
+        const productOriginalPrice = product?.price || 0;
+        const originalPrice = productOriginalPrice * quantity;
+
+        // محاسبه قیمت نهایی (با تخفیف)
+        // اگر savedPrice وجود داشت، از آن استفاده کن (قیمت واحد ذخیره شده)
+        // وگرنه از discountPrice یا price محصول استفاده کن
+        const productDiscountPrice =
+          product?.discountPrice ?? productOriginalPrice;
+
+        // محاسبه قیمت واحد (با تخفیف)
+        const unitPrice =
+          savedPrice && savedPrice > 0 ? savedPrice : productDiscountPrice;
+
+        // محاسبه قیمت کل (با تخفیف)
+        const finalPrice = unitPrice * quantity;
+
+        // محاسبه قیمت واحد اصلی (بدون تخفیف)
+        const unitOriginalPrice = productOriginalPrice;
+
+        // محاسبه درصد تخفیف از قیمت اصلی و قیمت با تخفیف
+        let discount = 0;
+        if (
+          productDiscountPrice &&
+          productOriginalPrice > 0 &&
+          productDiscountPrice < productOriginalPrice
+        ) {
+          // محاسبه discount از قیمت محصول
+          discount = Math.round(
+            ((productOriginalPrice - productDiscountPrice) /
+              productOriginalPrice) *
+              100,
+          );
+        } else if (product?.discount) {
+          // اگر discount به صورت درصد وجود داشت، از آن استفاده کن
+          discount = product.discount;
+        }
+
+        // ساخت item با فیلدهای اضافی
+        const itemObject = item.toObject ? item.toObject() : item;
+        return {
+          ...itemObject,
+          price: finalPrice, // قیمت کل (با تخفیف) = unitPrice * quantity
+          originalPrice: originalPrice, // قیمت کل اصلی (بدون تخفیف) = productOriginalPrice * quantity
+          unitPrice: unitPrice, // ✅ قیمت واحد (با تخفیف) - برای نمایش در Frontend
+          unitOriginalPrice: unitOriginalPrice, // ✅ قیمت واحد اصلی (بدون تخفیف) - برای نمایش در Frontend
+          discount: discount, // درصد تخفیف
+        };
+      });
+
       return {
         cart,
-        items,
+        items: itemsWithDiscount,
+        itemCount, // تعداد آیتم‌های مختلف
+        totalItems, // تعداد کل محصولات (با quantity)
+        totalPrice: prices.totalWithDiscount, // قیمت کل
+        expiresAt: cart.expiresAt, // زمان انقضا
+        remainingSeconds, // زمان باقی‌مانده تا انقضا (ثانیه)
         prices,
       };
     } else {
@@ -109,25 +466,48 @@ export class CartService {
       `Calculating prices for cart ${id} with ${items.length} items`,
     );
 
-    // Prepare items for calculation
-    const itemsData = items.map((item) => ({
-      price: item?.product?.price ?? 0,
-      discount: (item?.product as any)?.discountPrice || (item?.product as any)?.discount || 0,
-      quantity: item?.quantity ?? 0,
-    }));
+    // ✅ محاسبه مستقیم قیمت‌ها بدون استفاده از discount (برای جلوگیری از خطای rounding)
+    let totalWithDiscount = 0;
+    let totalWithoutDiscount = 0;
 
-    // Calculate using helper function
-    const result = calculateCartTotal(itemsData);
+    for (const item of items) {
+      const product = item?.product as any;
+      const savedPrice = (item as any)?.price; // قیمت واحد ذخیره شده در CartItem
+      const productPrice = product?.price ?? 0; // قیمت اصلی محصول
+      const quantity = item?.quantity ?? 0;
+
+      // محاسبه قیمت اصلی (بدون تخفیف)
+      const itemPriceWithoutDiscount = productPrice * quantity;
+      totalWithoutDiscount += itemPriceWithoutDiscount;
+
+      // محاسبه قیمت نهایی (با تخفیف)
+      if (savedPrice && savedPrice > 0) {
+        // ✅ مستقیماً از savedPrice استفاده کن (قیمت واحد با تخفیف)
+        const itemPriceWithDiscount = savedPrice * quantity;
+        totalWithDiscount += itemPriceWithDiscount;
+      } else {
+        // اگر savedPrice وجود نداشت، از discountPrice محصول استفاده کن
+        const discountPrice = product?.discountPrice || productPrice;
+        const itemPriceWithDiscount = discountPrice * quantity;
+        totalWithDiscount += itemPriceWithDiscount;
+      }
+    }
+
+    const savings = totalWithoutDiscount - totalWithDiscount;
+    const savingsPercentage =
+      totalWithoutDiscount > 0
+        ? Math.round((savings / totalWithoutDiscount) * 100)
+        : 0;
 
     this.logger.debug(
-      `Cart total: ${result.priceWithDiscount} (saved: ${result.savings} - ${result.savingsPercentage}%)`,
+      `Cart total: ${totalWithDiscount} (saved: ${savings} - ${savingsPercentage}%)`,
     );
 
     return {
-      totalWithoutDiscount: result.priceWithoutDiscount,
-      totalWithDiscount: result.priceWithDiscount,
-      totalSavings: result.savings,
-      savingsPercentage: result.savingsPercentage,
+      totalWithoutDiscount,
+      totalWithDiscount,
+      totalSavings: savings,
+      savingsPercentage,
     };
   }
 
@@ -141,46 +521,185 @@ export class CartService {
     }
   }
 
-  async editCart(id: string, body: EditCartItemDto) {
-    const cartItem = await this.findCartItemById(body.cartItem);
-    cartItem.quantity = body.quantity;
-    await cartItem.save();
-    return this.getCartDetails(id);
-  }
+  async editCart(
+    id: string,
+    body: EditCartItemDto,
+    userId?: string,
+    sessionId?: string,
+  ) {
+    // بررسی authorization و انقضای سبد خرید
+    const cart = await this.findCart(id, userId, sessionId);
+    if (cart.expiresAt && cart.expiresAt < new Date()) {
+      await this.removeCartAndItems(id);
+      throw new NotFoundException('سبد خرید منقضی شده است');
+    }
 
-  async addItemToCart(id: string, body: newCartDto) {
-    const items = await this.findCartItem(id);
-    const oldItem = items.find(
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      (item) => `${item.product._id}` === body.productId,
+    // به‌روزرسانی زمان فعالیت
+    await this.cartCleanupService.updateCartActivity(id);
+
+    const cartItem = await this.findCartItemById(body.cartItem);
+
+    // بررسی اینکه cartItem متعلق به این cart است
+    const cartItemCartId =
+      (cartItem.cart as any)?._id?.toString() ||
+      (cartItem.cart as any)?.toString();
+    if (cartItemCartId !== id && cartItemCartId !== cart._id.toString()) {
+      throw new ForbiddenException('این آیتم متعلق به این سبد خرید نیست');
+    }
+
+    // بررسی موجودی محصول
+    const product = await this.productService.findOne(
+      (cartItem.product as any)._id?.toString() ||
+        (cartItem.product as any).toString(),
     );
 
-    if (oldItem?._id) {
-      const newQuantity = (body.quantity || 1) + oldItem.quantity;
-      await this.editCart(id, {
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
-        cartItem: oldItem._id.toString(),
-        quantity: newQuantity,
+    if (product.stock < body.quantity) {
+      throw new BadRequestException(
+        `موجودی ${product.name || 'محصول'} کافی نیست. موجودی فعلی: ${product.stock}`,
+      );
+    }
+
+    // اگر quantity صفر یا منفی باشد، آیتم را حذف کن
+    if (body.quantity <= 0) {
+      await this.deleteCartItem(body.cartItem);
+      const remainingItems = await this.findCartItem(id);
+      if (remainingItems.length === 0) {
+        await this.deleteCart(id, userId, sessionId);
+        return {
+          cart: null,
+          items: [],
+          itemCount: 0,
+          totalItems: 0,
+          totalPrice: 0,
+          prices: {
+            totalWithoutDiscount: 0,
+            totalWithDiscount: 0,
+            totalSavings: 0,
+            savingsPercentage: 0,
+          },
+        };
+      }
+      return this.getCartDetails(id, userId, sessionId);
+    }
+
+    cartItem.quantity = body.quantity;
+    await cartItem.save();
+    return this.getCartDetails(id, userId, sessionId);
+  }
+
+  async addItemToCart(
+    id: string,
+    body: newCartDto,
+    userId?: string,
+    sessionId?: string,
+  ) {
+    // بررسی authorization و انقضای سبد خرید
+    const cart = await this.findCart(id, userId, sessionId);
+    if (cart.expiresAt && cart.expiresAt < new Date()) {
+      await this.removeCartAndItems(id, userId, sessionId);
+      throw new NotFoundException('سبد خرید منقضی شده است');
+    }
+
+    // به‌روزرسانی زمان فعالیت
+    await this.cartCleanupService.updateCartActivity(id);
+    // بررسی وجود محصول و موجودی
+    const product = await this.productService.findOne(body.productId);
+
+    if (!product.isAvailable) {
+      throw new BadRequestException('این محصول در حال حاضر موجود نیست');
+    }
+
+    const requestedQuantity = body.quantity || 1;
+
+    if (product.stock < requestedQuantity) {
+      throw new BadRequestException(
+        `موجودی ${product.name} کافی نیست. موجودی فعلی: ${product.stock}`,
+      );
+    }
+
+    // دریافت قیمت نهایی محصول (با تخفیف)
+    const finalPrice = product.discountPrice || product.price;
+
+    // پیدا کردن آیتم موجود در سبد
+    const items = await this.findCartItem(id);
+
+    // منطق چک کردن آیتم موجود بر اساس productType
+    let oldItem: any = null;
+    const productType = (product as any).productType || 'jewelry';
+
+    if (productType === 'jewelry') {
+      // برای جواهرات: productId + size را چک کن
+      oldItem = items.find((item) => {
+        const itemProductId =
+          (item.product as any)._id?.toString() ||
+          (item.product as any).toString();
+        return (
+          itemProductId === body.productId &&
+          (item.size || '') === (body.size || '')
+        );
       });
     } else {
-      await this.createCartItem({
-        product: body.productId,
-        quantity: body.quantity || 1,
-        cart: id,
+      // برای سکه و شمش: فقط productId را چک کن
+      oldItem = items.find((item) => {
+        const itemProductId =
+          (item.product as any)._id?.toString() ||
+          (item.product as any).toString();
+        return itemProductId === body.productId;
       });
     }
 
-    return this.getCartDetails(id);
+    if (oldItem?._id) {
+      // اگر آیتم موجود باشد، quantity را افزایش بده
+      const newQuantity = requestedQuantity + oldItem.quantity;
+
+      // بررسی موجودی برای quantity جدید
+      if (product.stock < newQuantity) {
+        throw new BadRequestException(
+          `موجودی ${product.name} کافی نیست. موجودی فعلی: ${product.stock}`,
+        );
+      }
+
+      await this.editCart(
+        id,
+        {
+          cartItem: (oldItem._id as Types.ObjectId).toString(),
+          quantity: newQuantity,
+        },
+        userId,
+        sessionId,
+      );
+    } else {
+      // اگر آیتم موجود نباشد، آیتم جدید اضافه کن
+      await this.createCartItem({
+        product: body.productId,
+        quantity: requestedQuantity,
+        cart: id,
+        price: finalPrice,
+        size: body.size,
+      });
+    }
+
+    return this.getCartDetails(id, userId, sessionId);
   }
 
-  async removeCartAndItems(id: string) {
+  async removeCartAndItems(id: string, userId?: string, sessionId?: string) {
     const items = await this.findCartItem(id);
 
     for (const item of items) {
       await this.deleteCartItem((item._id as Types.ObjectId).toString());
     }
 
-    await this.deleteCart(id);
+    // اگر userId یا sessionId وجود داشت، authorization check کن
+    // وگرنه مستقیماً حذف کن (برای internal use مثل cleanup service)
+    if (userId || sessionId) {
+      await this.deleteCart(id, userId, sessionId);
+    } else {
+      // بدون authorization check (برای internal use)
+      const cart = await this.cartModel.findOne({ _id: id }).exec();
+      if (cart) {
+        await cart.deleteOne();
+      }
+    }
   }
 
   async deleteCartItem(id: string) {
@@ -189,20 +708,99 @@ export class CartService {
     return cartItem;
   }
 
-  async deleteCart(id: string) {
-    const cart = await this.findCart(id);
+  async deleteCart(id: string, userId?: string, sessionId?: string) {
+    const cart = await this.findCart(id, userId, sessionId);
     await cart.deleteOne();
     return cart;
   }
-  async removeItemFromCart(id: string, body: DeleteCartItemDto) {
+  async removeItemFromCart(
+    id: string,
+    body: DeleteCartItemDto,
+    userId?: string,
+    sessionId?: string,
+  ) {
+    // بررسی authorization و انقضای سبد خرید
+    const cart = await this.findCart(id, userId, sessionId);
+    if (cart.expiresAt && cart.expiresAt < new Date()) {
+      await this.removeCartAndItems(id);
+      throw new NotFoundException('سبد خرید منقضی شده است');
+    }
+
+    // به‌روزرسانی زمان فعالیت
+    await this.cartCleanupService.updateCartActivity(id);
+
+    // بررسی اینکه cartItem وجود دارد و متعلق به این cart است
+    const cartItem = await this.cartItemModel
+      .findOne({
+        _id: body.cartItem,
+        cart: id, // ✅ فقط cartItem متعلق به این cart
+      })
+      .exec();
+
+    if (!cartItem) {
+      throw new NotFoundException('آیتم در سبد خرید یافت نشد');
+    }
+
     await this.deleteCartItem(body.cartItem);
 
-    const item = await this.findCartItem(id);
-
-    if (item?.length) {
-      return this.getCartDetails(id);
-    } else {
-      await this.deleteCart(id);
+    // بررسی اینکه آیا آیتم دیگری در سبد وجود دارد یا نه
+    const remainingItems = await this.findCartItem(id);
+    if (remainingItems && remainingItems.length > 0) {
+      return this.getCartDetails(id, userId, sessionId);
     }
+
+    // اگر سبد خالی شد، آن را حذف کن و response خالی برگردان
+    await this.deleteCart(id, userId, sessionId);
+    return {
+      cart: null,
+      items: [],
+      itemCount: 0,
+      totalItems: 0,
+      totalPrice: 0,
+      expiresAt: null,
+      remainingSeconds: 0,
+      prices: {
+        totalWithoutDiscount: 0,
+        totalWithDiscount: 0,
+        totalSavings: 0,
+        savingsPercentage: 0,
+      },
+    };
+  }
+
+  /**
+   * حذف آیتم از سبد خرید با استفاده از cartItem ID
+   * این متد برای Frontend استفاده می‌شود که فقط cartItem ID را دارد
+   */
+  async removeItemByCartItemId(
+    cartItemId: string,
+    userId?: string,
+    sessionId?: string,
+  ) {
+    // پیدا کردن cartItem و cart آن
+    const cartItem = await this.cartItemModel
+      .findOne({ _id: cartItemId })
+      .populate('cart')
+      .exec();
+
+    if (!cartItem) {
+      throw new NotFoundException('آیتم در سبد خرید یافت نشد');
+    }
+
+    const cartId =
+      (cartItem.cart as any)?._id?.toString() ||
+      (cartItem.cart as any)?.toString();
+
+    if (!cartId) {
+      throw new NotFoundException('سبد خرید یافت نشد');
+    }
+
+    // استفاده از متد موجود removeItemFromCart
+    return this.removeItemFromCart(
+      cartId,
+      { cartItem: cartItemId },
+      userId,
+      sessionId,
+    );
   }
 }

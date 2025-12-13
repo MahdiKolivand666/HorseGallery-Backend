@@ -15,4 +15,8 @@ export class newCartDto {
   @IsNumber()
   @Min(1, { message: 'تعداد باید حداقل 1 باشد' })
   quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  size?: string; // برای جواهرات (اختیاری)
 }

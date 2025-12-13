@@ -52,15 +52,21 @@ export class SiteProductController {
   async findProduct(@Param('url') url: string) {
     const product = await this.productService.findOneWithUrl(url);
 
+    // Get current product type to filter related products
+    // ⚠️ مهم: فقط محصولات با همان productType نمایش داده می‌شوند
+    const currentProductType = (product as any).productType || 'jewelry';
+
     const relatedProducts = await this.productService.findAll(
       {
         category: (product.category as any)._id.toString(),
         exclude: [(product._id as string).toString()],
+        productType: currentProductType, // فیلتر بر اساس نوع محصول - اجباری!
       },
       {
         name: 1,
         slug: 1,
         images: 1,
+        productType: 1, // اضافه کردن productType به response
       },
     );
 
