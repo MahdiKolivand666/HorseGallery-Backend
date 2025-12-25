@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Observable } from 'rxjs';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { TokenBlacklistService } from '../services/token-blacklist.service';
 
 @Injectable()
 export class JwtGuard implements CanActivate {
@@ -17,6 +18,7 @@ export class JwtGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
+    private readonly tokenBlacklistService: TokenBlacklistService,
   ) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if route is marked as public
@@ -114,6 +116,17 @@ export class JwtGuard implements CanActivate {
       if (!payload || !payload._id) {
         this.logger.warn(`Invalid token payload: ${JSON.stringify(payload)}`);
         throw new UnauthorizedException('Invalid token payload');
+      }
+
+      // ✅ چک کردن blacklist (اگر jti وجود دارد)
+      if (payload.jti) {
+        const isBlacklisted = await this.tokenBlacklistService.isBlacklisted(
+          payload.jti,
+        );
+        if (isBlacklisted) {
+          this.logger.warn(`Token blacklisted: ${payload.jti}`);
+          throw new UnauthorizedException('Token has been revoked');
+        }
       }
 
       // Log payload for debugging

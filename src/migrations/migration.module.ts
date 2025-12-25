@@ -5,12 +5,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ProductMigrationService } from './product-migration.service';
 import { MigrationController } from './migration.controller';
 import { Product, productSchema } from '../product/schemas/product.schema';
-import { ProductCategory, productCategorySchema } from '../product/schemas/product-category.schema';
+import {
+  ProductCategory,
+  productCategorySchema,
+} from '../product/schemas/product-category.schema';
 import { Blog, BlogSchema } from '../blog/schemas/blog.schema';
 import { Address, addressSchema } from '../user/schemas/address.schema';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule, // ✅ برای استفاده از TokenBlacklistService در JwtGuard
     MongooseModule.forFeature([
       { name: Product.name, schema: productSchema },
       { name: ProductCategory.name, schema: productCategorySchema },
@@ -30,4 +35,3 @@ import { Address, addressSchema } from '../user/schemas/address.schema';
   exports: [ProductMigrationService],
 })
 export class MigrationModule {}
-

@@ -12,7 +12,7 @@ export class ProductQueryDto extends GeneralQueryDto {
 
   @IsOptional()
   @IsString()
-  productType?: string; // jewelry, coin, melted_gold
+  productType?: string; // jewelry, coin (melted_gold جدا شده است)
 
   @IsOptional()
   @IsString()

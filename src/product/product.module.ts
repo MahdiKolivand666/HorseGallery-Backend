@@ -10,7 +10,10 @@ import {
   productCategorySchema,
 } from './schemas/product-category.schema';
 import { SiteProductController } from './controllers/site-product.controller';
-import { PublicProductController, PublicProductCategoryController } from './controllers/public-product.controller';
+import {
+  PublicProductController,
+  PublicProductCategoryController,
+} from './controllers/public-product.controller';
 import {
   InventoryRecord,
   inventoryRecordSchema,
@@ -18,6 +21,7 @@ import {
 import { InventoryRecordService } from './services/inventory-record.service';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   controllers: [
@@ -28,9 +32,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     ProductController,
     ProductCategoryController,
   ],
-  exports: [ProductService],
+  exports: [ProductService, ProductCategoryService],
   providers: [ProductService, ProductCategoryService, InventoryRecordService],
   imports: [
+    SharedModule, // ✅ برای استفاده از TokenBlacklistService در JwtGuard
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -431,36 +431,36 @@ export class ProductService {
 
     // Sort mapping - با پشتیبانی از گزینه‌های مخصوص سکه و شمش
     let sort: any;
-    
-    // اگر productType سکه یا شمش است، از گزینه‌های مخصوص استفاده کن
-    if (productType === 'coin' || productType === 'melted_gold') {
+
+    // اگر productType سکه است، از گزینه‌های مخصوص استفاده کن (melted_gold جدا شده است)
+    if (productType === 'coin') {
       switch (sortBy) {
         case 'inStock':
           // موجود: فیلتر موجود + مرتب بر اساس وزن (از بیشترین به کمترین)
           query.stock = { $gt: 0 };
           sort = { 'goldInfo.weight': -1, createdAt: -1 };
           break;
-          
+
         case 'outOfStock':
           // ناموجود: فیلتر ناموجود + مرتب بر اساس stock
           query.stock = { $lte: 0 };
           sort = { stock: 1, createdAt: -1 };
           break;
-          
+
         case 'weight-desc':
           // از بیشترین وزن به کمترین
           // فقط محصولاتی که goldInfo.weight دارند
           query['goldInfo.weight'] = { $exists: true, $ne: null };
           sort = { 'goldInfo.weight': -1, createdAt: -1 };
           break;
-          
+
         case 'weight-asc':
           // از کمترین وزن به بیشترین
           // فقط محصولاتی که goldInfo.weight دارند
           query['goldInfo.weight'] = { $exists: true, $ne: null };
           sort = { 'goldInfo.weight': 1, createdAt: -1 };
           break;
-          
+
         default:
           // برای سایر گزینه‌ها از sortOptions استفاده کن
           const sortOptions: Record<string, any> = {

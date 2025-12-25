@@ -22,7 +22,14 @@ export class FarsiPipe implements PipeTransform {
           const isFarsi = farsi.test(fieldValue);
 
           if (!isFarsi) {
-            errors.push(`${key} را فارسی وارد نمایید`);
+            // ✅ پیام خطای بهتر برای کاربر
+            const fieldName =
+              key === 'firstName'
+                ? 'نام'
+                : key === 'lastName'
+                  ? 'نام خانوادگی'
+                  : key;
+            errors.push(`لطفاً ${fieldName} را به فارسی وارد کنید`);
           }
         }
       }

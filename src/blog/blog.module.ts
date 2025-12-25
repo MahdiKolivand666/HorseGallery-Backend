@@ -12,9 +12,11 @@ import { BlogCategoryService } from './services/blog-category.service';
 import { SiteBlogController } from './controllers/site-blog.controller';
 import { PublicBlogController } from './controllers/public-blog.controller';
 import { JwtModule } from '@nestjs/jwt';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule, // ✅ برای استفاده از TokenBlacklistService در JwtGuard
     JwtModule,
     MongooseModule.forFeature([
       { name: Blog.name, schema: BlogSchema },

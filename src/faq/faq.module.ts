@@ -5,9 +5,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { FAQ, FAQSchema } from './schemas/faq.schema';
 import { FAQService } from './services/faq.service';
 import { FAQController } from './controllers/faq.controller';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule, // ✅ برای استفاده از TokenBlacklistService در JwtGuard
     MongooseModule.forFeature([{ name: FAQ.name, schema: FAQSchema }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -22,4 +24,3 @@ import { FAQController } from './controllers/faq.controller';
   exports: [FAQService],
 })
 export class FAQModule {}
-

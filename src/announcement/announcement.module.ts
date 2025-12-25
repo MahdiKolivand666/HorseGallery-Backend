@@ -8,9 +8,11 @@ import {
 } from './schemas/announcement.schema';
 import { AnnouncementService } from './services/announcement.service';
 import { AnnouncementController } from './controllers/announcement.controller';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule, // ✅ برای استفاده از TokenBlacklistService در JwtGuard
     MongooseModule.forFeature([
       { name: Announcement.name, schema: AnnouncementSchema },
     ]),
@@ -27,4 +29,3 @@ import { AnnouncementController } from './controllers/announcement.controller';
   exports: [AnnouncementService],
 })
 export class AnnouncementModule {}
-

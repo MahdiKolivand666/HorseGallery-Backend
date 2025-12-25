@@ -36,14 +36,19 @@ cartSchema.pre('save', function (next) {
   if (!this.user && !this.sessionId) {
     return next(new Error('سبد خرید باید یا user یا sessionId داشته باشد'));
   }
-  
-  // تنظیم expiresAt: 10 دقیقه بعد از lastActivityAt
-  if (!this.expiresAt || this.isModified('lastActivityAt')) {
+
+  // تنظیم expiresAt: فقط اگر وجود ندارد
+  // اگر expiresAt از قبل تنظیم شده (مثلاً در updateCartActivity)، آن را تغییر نده
+  // این باعث می‌شود timer فقط وقتی فعالیت واقعی انجام می‌شود reset شود
+  if (!this.expiresAt) {
+    // فقط اگر expiresAt وجود ندارد، timer جدید شروع کن
     const expirationTime = new Date(this.lastActivityAt || Date.now());
     expirationTime.setMinutes(expirationTime.getMinutes() + 10);
     this.expiresAt = expirationTime;
   }
-  
+  // اگر expiresAt از قبل تنظیم شده، آن را تغییر نده
+  // تا timer از همان زمان باقیمانده ادامه دهد (مثلاً بعد از refresh صفحه)
+
   next();
 });
 

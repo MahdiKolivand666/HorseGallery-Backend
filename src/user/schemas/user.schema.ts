@@ -7,6 +7,11 @@ export enum Role {
   CopyWriter = 'copyWriter',
 }
 
+export enum RegistrationStatus {
+  Pending = 'pending', // فقط شماره تلفن وارد شده
+  Complete = 'complete', // اطلاعات کامل وارد شده
+}
+
 @Schema({ timestamps: true })
 export class User extends Document {
   @Prop()
@@ -27,6 +32,9 @@ export class User extends Document {
 
   @Prop({ required: false })
   codeExpiry?: Date;
+
+  @Prop({ required: false })
+  otpVerifiedAt?: Date; // ✅ زمان verify شدن کد OTP
 
   @Prop({ default: 0 })
   codeAttempts: number;
@@ -59,6 +67,13 @@ export class User extends Document {
 
   @Prop()
   lastLogin?: Date;
+
+  @Prop({ default: RegistrationStatus.Pending, enum: RegistrationStatus })
+  registrationStatus: RegistrationStatus;
+
+  // Wallet balance
+  @Prop({ type: Number, default: 0 })
+  walletBalance: number;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);
@@ -67,3 +82,4 @@ export const userSchema = SchemaFactory.createForClass(User);
 // Note: mobile already has unique index from @Prop({ unique: true })
 userSchema.index({ role: 1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ otpVerifiedAt: 1 }); // ✅ برای جستجوی سریع‌تر

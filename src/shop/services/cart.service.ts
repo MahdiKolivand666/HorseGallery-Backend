@@ -5,6 +5,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  IncompleteRegistrationException,
+  OtpRequiredException,
+} from 'src/shared/exceptions';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -16,6 +20,7 @@ import { EditCartItemDto } from '../dtos/edit-cart-item.dto';
 import { DeleteCartItemDto } from '../dtos/delete-cat-item.dto';
 import { ProductService } from 'src/product/services/product.service';
 import { CartCleanupService } from './cart-cleanup.service';
+import { User, RegistrationStatus } from 'src/user/schemas/user.schema';
 
 @Injectable()
 export class CartService {
@@ -24,11 +29,42 @@ export class CartService {
   constructor(
     @InjectModel(Cart.name) private readonly cartModel: Model<Cart>,
     @InjectModel(CartItem.name) private readonly cartItemModel: Model<CartItem>,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly productService: ProductService,
     private readonly cartCleanupService: CartCleanupService,
   ) {}
 
   async createNewCart(body: newCartDto, user?: string, sessionId?: string) {
+    // ✅ اگر کاربر لاگین است، بررسی registrationStatus
+    if (user) {
+      // ✅ استفاده از lean() برای اطمینان از دریافت آخرین داده از database (بدون cache)
+      const userDoc = await this.userModel
+        .findById(user)
+        .select('registrationStatus mobile otpVerifiedAt')
+        .lean();
+      if (!userDoc) {
+        throw new ForbiddenException('کاربر یافت نشد. لطفاً دوباره وارد شوید');
+      }
+      if (userDoc.registrationStatus !== RegistrationStatus.Complete) {
+        // ✅ بررسی اینکه آیا otpVerifiedAt بیش از 7 روز گذشته است
+        // ✅ اگر گذشته باشد، کاربر باید دوباره OTP بگیرد
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const isOtpVerificationExpired =
+          !userDoc.otpVerifiedAt || userDoc.otpVerifiedAt < sevenDaysAgo;
+
+        if (isOtpVerificationExpired) {
+          // ✅ کاربر pending است و OTP verification منقضی شده یا وجود ندارد
+          // ✅ باید modal OTP برایش باز شود و کد ارسال شود
+          throw new OtpRequiredException(userDoc.mobile);
+        }
+
+        // ✅ کاربر لاگین است و OTP verify شده اما اطلاعات کامل ندارد
+        // ✅ خطای مخصوص که نشان می‌دهد کاربر لاگین است و فقط باید فرم تکمیل اطلاعات را نشان دهد
+        throw new IncompleteRegistrationException(userDoc.mobile);
+      }
+    }
+
     // بررسی وجود محصول و موجودی
     const product = await this.productService.findOne(body.productId);
 
@@ -263,6 +299,7 @@ export class CartService {
         totalPrice: 0,
         expiresAt: null,
         remainingSeconds: 0,
+        expired: false, // ✅ سبد وجود ندارد (نه منقضی شده)
         prices: {
           totalWithoutDiscount: 0,
           totalWithDiscount: 0,
@@ -356,15 +393,33 @@ export class CartService {
   async getCartDetails(id: string, userId?: string, sessionId?: string) {
     const cart = await this.findCart(id, userId, sessionId);
 
-    // بررسی انقضای سبد خرید
-    if (cart.expiresAt && cart.expiresAt < new Date()) {
-      // سبد منقضی شده، پاک کن
-      await this.removeCartAndItems(id, userId, sessionId);
-      throw new NotFoundException('سبد خرید منقضی شده است');
+    // ✅ بررسی انقضای سبد خرید (بدون حذف)
+    // ✅ Cart منقضی شده حذف نمی‌شود - فقط expired flag set می‌شود
+    const now = new Date();
+    const isExpired = cart.expiresAt && cart.expiresAt < now;
+
+    if (isExpired) {
+      // ✅ Cart منقضی شده - حذف نکن، فقط expired flag را set کن
+      // ✅ Cart فقط هنگام checkout (createOrder) حذف می‌شود
+      const items = await this.findCartItem(id);
+      const prices = await this.getPrices(id);
+
+      return {
+        cart: cart,
+        items: items || [],
+        itemCount: items?.length || 0,
+        totalItems: items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+        totalPrice: prices.totalWithDiscount || 0,
+        expiresAt: cart.expiresAt,
+        remainingSeconds: 0, // ✅ منقضی شده
+        expired: true, // ✅ نشان می‌دهد که cart منقضی شده
+        prices: prices,
+      };
     }
 
-    // به‌روزرسانی زمان فعالیت
-    await this.cartCleanupService.updateCartActivity(id);
+    // ❌ به‌روزرسانی زمان فعالیت را حذف کردیم
+    // فقط وقتی فعالیت واقعی انجام می‌شود (افزودن/ویرایش/حذف) به‌روزرسانی می‌شود
+    // await this.cartCleanupService.updateCartActivity(id);
 
     const items = await this.findCartItem(id);
 
@@ -452,6 +507,7 @@ export class CartService {
         totalPrice: prices.totalWithDiscount, // قیمت کل
         expiresAt: cart.expiresAt, // زمان انقضا
         remainingSeconds, // زمان باقی‌مانده تا انقضا (ثانیه)
+        expired: false, // ✅ نشان می‌دهد که cart منقضی نشده
         prices,
       };
     } else {
@@ -527,12 +583,9 @@ export class CartService {
     userId?: string,
     sessionId?: string,
   ) {
-    // بررسی authorization و انقضای سبد خرید
+    // ✅ بررسی authorization (بدون بررسی انقضا)
+    // ✅ Cart منقضی شده حذف نمی‌شود - فقط هنگام checkout بررسی می‌شود
     const cart = await this.findCart(id, userId, sessionId);
-    if (cart.expiresAt && cart.expiresAt < new Date()) {
-      await this.removeCartAndItems(id);
-      throw new NotFoundException('سبد خرید منقضی شده است');
-    }
 
     // به‌روزرسانی زمان فعالیت
     await this.cartCleanupService.updateCartActivity(id);
@@ -593,12 +646,39 @@ export class CartService {
     userId?: string,
     sessionId?: string,
   ) {
-    // بررسی authorization و انقضای سبد خرید
-    const cart = await this.findCart(id, userId, sessionId);
-    if (cart.expiresAt && cart.expiresAt < new Date()) {
-      await this.removeCartAndItems(id, userId, sessionId);
-      throw new NotFoundException('سبد خرید منقضی شده است');
+    // ✅ اگر کاربر لاگین است، بررسی registrationStatus
+    if (userId) {
+      // ✅ استفاده از lean() برای اطمینان از دریافت آخرین داده از database (بدون cache)
+      const userDoc = await this.userModel
+        .findById(userId)
+        .select('registrationStatus mobile otpVerifiedAt')
+        .lean();
+      if (!userDoc) {
+        throw new ForbiddenException('کاربر یافت نشد. لطفاً دوباره وارد شوید');
+      }
+      if (userDoc.registrationStatus !== RegistrationStatus.Complete) {
+        // ✅ بررسی اینکه آیا otpVerifiedAt بیش از 7 روز گذشته است
+        // ✅ اگر گذشته باشد، کاربر باید دوباره OTP بگیرد
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const isOtpVerificationExpired =
+          !userDoc.otpVerifiedAt || userDoc.otpVerifiedAt < sevenDaysAgo;
+
+        if (isOtpVerificationExpired) {
+          // ✅ کاربر pending است و OTP verification منقضی شده یا وجود ندارد
+          // ✅ باید modal OTP برایش باز شود و کد ارسال شود
+          throw new OtpRequiredException(userDoc.mobile);
+        }
+
+        // ✅ کاربر لاگین است و OTP verify شده اما اطلاعات کامل ندارد
+        // ✅ خطای مخصوص که نشان می‌دهد کاربر لاگین است و فقط باید فرم تکمیل اطلاعات را نشان دهد
+        throw new IncompleteRegistrationException(userDoc.mobile);
+      }
     }
+
+    // ✅ بررسی authorization (بدون بررسی انقضا)
+    // ✅ Cart منقضی شده حذف نمی‌شود - فقط هنگام checkout بررسی می‌شود
+    const cart = await this.findCart(id, userId, sessionId);
 
     // به‌روزرسانی زمان فعالیت
     await this.cartCleanupService.updateCartActivity(id);
@@ -625,7 +705,7 @@ export class CartService {
 
     // منطق چک کردن آیتم موجود بر اساس productType
     let oldItem: any = null;
-    const productType = (product as any).productType || 'jewelry';
+    const productType = product?.productType || 'jewelry';
 
     if (productType === 'jewelry') {
       // برای جواهرات: productId + size را چک کن
@@ -719,12 +799,9 @@ export class CartService {
     userId?: string,
     sessionId?: string,
   ) {
-    // بررسی authorization و انقضای سبد خرید
+    // ✅ بررسی authorization (بدون بررسی انقضا)
+    // ✅ Cart منقضی شده حذف نمی‌شود - فقط هنگام checkout بررسی می‌شود
     const cart = await this.findCart(id, userId, sessionId);
-    if (cart.expiresAt && cart.expiresAt < new Date()) {
-      await this.removeCartAndItems(id);
-      throw new NotFoundException('سبد خرید منقضی شده است');
-    }
 
     // به‌روزرسانی زمان فعالیت
     await this.cartCleanupService.updateCartActivity(id);

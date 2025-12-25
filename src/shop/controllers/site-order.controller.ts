@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderService } from '../services/order.service';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
 import { CsrfGuard, CsrfExempt } from 'src/shared/guards/csrf.guard';
+import { CompleteRegistrationGuard } from 'src/shared/guards/complete-registration.guard';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -64,18 +65,24 @@ export class SiteOrderController {
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         await this.cartService.removeCartAndItems(order.cart.toString());
         await order.save();
-        
+
         // Increment sales count for all products in this order
-        const orderDetails = await this.orderService.findOneOrderDetails(orderId);
+        const orderDetails =
+          await this.orderService.findOneOrderDetails(orderId);
         if (orderDetails?.items) {
           for (const item of orderDetails.items) {
-            const productId = (item.product as any)?._id?.toString() || (item.product as any)?.toString();
+            const productId =
+              (item.product as any)?._id?.toString() ||
+              (item.product as any)?.toString();
             if (productId) {
-              await this.productService.incrementSales(productId, item.quantity || 1);
+              await this.productService.incrementSales(
+                productId,
+                item.quantity || 1,
+              );
             }
           }
         }
-        
+
         return response.redirect(`${frontendUrl}/order/success?id=${orderId}`);
       } else {
         order.status = OrderStatus.Canceled;
@@ -120,7 +127,7 @@ export class SiteOrderController {
 
   @Post()
   @ApiBearerAuth()
-  @UseGuards(JwtGuard)
+  @UseGuards(JwtGuard, CompleteRegistrationGuard)
   createOrder(
     @Body(new BodyIdPipe(['cartId', 'addressId', 'shippingId']))
     body: CreateOrderDto,

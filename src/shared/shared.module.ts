@@ -7,6 +7,11 @@ import { SecurityLog, SecurityLogSchema } from './schemas/security-log.schema';
 import { SecurityLogService } from './services/security-log.service';
 import { SecurityLogController } from './controllers/security-log.controller';
 import { ImagesController } from './controllers/images.controller';
+import {
+  TokenBlacklist,
+  TokenBlacklistSchema,
+} from './schemas/token-blacklist.schema';
+import { TokenBlacklistService } from './services/token-blacklist.service';
 
 /**
  * Shared module for common services and controllers
@@ -23,10 +28,11 @@ import { ImagesController } from './controllers/images.controller';
     }),
     MongooseModule.forFeature([
       { name: SecurityLog.name, schema: SecurityLogSchema },
+      { name: TokenBlacklist.name, schema: TokenBlacklistSchema },
     ]),
   ],
   controllers: [SecurityLogController, ImagesController],
-  providers: [SecurityLogService],
-  exports: [SecurityLogService],
+  providers: [SecurityLogService, TokenBlacklistService],
+  exports: [SecurityLogService, TokenBlacklistService],
 })
 export class SharedModule {}

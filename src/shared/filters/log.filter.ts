@@ -4,7 +4,6 @@ import {
   ExceptionFilter,
   HttpException,
 } from '@nestjs/common';
-import { Response } from 'express';
 import { AppService } from 'src/app.service';
 import { LogType } from '../schemas/log.schema';
 
@@ -12,21 +11,23 @@ import { LogType } from '../schemas/log.schema';
 export class LogFilter<T extends HttpException> implements ExceptionFilter {
   constructor(private readonly appService: AppService) {}
   async catch(exception: T, host: ArgumentsHost) {
-    const response = host.switchToHttp().getResponse<Response>();
-    const status = exception.getStatus();
     const request = host.switchToHttp().getRequest<Request>();
-    if (status === 404) {
-      response.status(404).send({
-        statusCode: status,
-        message: 'یافت نشد',
+
+    // فقط logging - response را تغییر نده
+    // HttpExceptionFilter بعداً response را handle می‌کند
+    try {
+      await this.appService.log({
+        content: JSON.stringify(exception.getResponse()),
+        type: LogType.ERROR,
+        url: request.url,
       });
-    } else {
-      response.send(exception.getResponse());
+    } catch (logError) {
+      // اگر logging fail شد، ignore کن و ادامه بده
+      console.error('LogFilter: Failed to log error', logError);
     }
-    await this.appService.log({
-      content: JSON.stringify(exception.getResponse()),
-      type: LogType.ERROR,
-      url: request.url,
-    });
+
+    // Exception را دوباره throw کن تا فیلتر بعدی (HttpExceptionFilter) آن را handle کند
+    // در NestJS، اگر exception را throw نکنیم، فیلتر بعدی آن را catch نمی‌کند
+    throw exception;
   }
 }

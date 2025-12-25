@@ -32,7 +32,7 @@ export class PublicProductQueryDto {
   @IsString()
   subcategory?: string; // slug of subcategory
 
-  // Product Type (jewelry, coin, melted_gold)
+  // Product Type (jewelry, coin) - melted_gold جدا شده است
   @IsOptional()
   @IsString()
   productType?: string;

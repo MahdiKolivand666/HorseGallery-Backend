@@ -16,64 +16,33 @@ export class CartCleanupService {
 
   /**
    * پاک کردن خودکار سبدهای خرید منقضی شده
-   * هر 1 دقیقه یکبار اجرا می‌شود
+   * ❌ غیرفعال شده: Cart ها دیگر به صورت خودکار حذف نمی‌شوند
+   * ✅ Cart ها فقط هنگام checkout (createOrder) بررسی می‌شوند و در صورت انقضا حذف می‌شوند
    */
-  @Cron(CronExpression.EVERY_MINUTE)
+  // @Cron(CronExpression.EVERY_MINUTE) // ❌ غیرفعال شده
   async handleExpiredCarts() {
-    this.logger.debug('بررسی سبدهای خرید منقضی شده...');
-
-    try {
-      const now = new Date();
-      
-      // پیدا کردن سبدهای منقضی شده
-      const expiredCarts = await this.cartModel
-        .find({
-          expiresAt: { $lt: now },
-        })
-        .exec();
-
-      if (expiredCarts.length === 0) {
-        this.logger.debug('هیچ سبد خرید منقضی شده‌ای یافت نشد');
-        return;
-      }
-
-      this.logger.log(
-        `پیدا شد ${expiredCarts.length} سبد خرید منقضی شده برای پاک کردن`,
-      );
-
-      // پاک کردن آیتم‌های سبد و خود سبد
-      for (const cart of expiredCarts) {
-        try {
-          // حذف آیتم‌های سبد
-          await this.cartItemModel.deleteMany({ cart: cart._id }).exec();
-          
-          // حذف سبد
-          await cart.deleteOne();
-          
-          this.logger.debug(`سبد خرید ${cart._id} پاک شد`);
-        } catch (error) {
-          this.logger.error(
-            `خطا در پاک کردن سبد ${cart._id}: ${error.message}`,
-          );
-        }
-      }
-
-      this.logger.log(
-        `✅ ${expiredCarts.length} سبد خرید منقضی شده پاک شد`,
-      );
-    } catch (error) {
-      this.logger.error(`خطا در پاک کردن سبدهای منقضی شده: ${error.message}`);
-    }
+    // ❌ این متد دیگر اجرا نمی‌شود
+    // Cart ها دیگر به صورت خودکار حذف نمی‌شوند
+    // Cart ها فقط هنگام checkout (createOrder) بررسی می‌شوند
+    this.logger.debug(
+      'Cart cleanup service غیرفعال شده - Cart ها فقط هنگام checkout بررسی می‌شوند',
+    );
+    return;
   }
 
   /**
    * به‌روزرسانی lastActivityAt و expiresAt سبد خرید
+   * این متد فقط وقتی فعالیت واقعی انجام می‌شود فراخوانی می‌شود (افزودن/ویرایش/حذف محصول)
+   * در این حالت timer باید reset شود (10 دقیقه جدید)
+   *
+   * ⚠️ توجه: این متد در getCartDetails فراخوانی نمی‌شود تا timer از همان زمان باقیمانده ادامه دهد
    */
   async updateCartActivity(cartId: string) {
     try {
       const cart = await this.cartModel.findById(cartId).exec();
-      
+
       if (cart) {
+        // وقتی فعالیت واقعی انجام می‌شود، timer را reset کن (10 دقیقه جدید)
         cart.lastActivityAt = new Date();
         const expirationTime = new Date();
         expirationTime.setMinutes(expirationTime.getMinutes() + 10);
@@ -87,4 +56,3 @@ export class CartCleanupService {
     }
   }
 }
-

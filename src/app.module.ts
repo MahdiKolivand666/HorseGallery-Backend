@@ -15,7 +15,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { LogFilter } from './shared/filters/log.filter';
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { MongoExceptionFilter } from './shared/filters/mongo-exception.filter';
 import { Log, LogSchema } from './shared/schemas/log.schema';
@@ -108,10 +107,6 @@ import { ScheduleModule } from '@nestjs/schedule';
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
-    },
-    {
-      provide: APP_FILTER,
-      useClass: LogFilter,
     },
     {
       provide: APP_FILTER,

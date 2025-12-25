@@ -14,6 +14,7 @@ import { SessionId } from 'src/shared/decorators/session.decorator';
 import { OptionalJwtGuard } from 'src/shared/guards/optional-jwt.guard';
 import { JwtGuard } from 'src/shared/guards/jwt.guard';
 import { CsrfGuard } from 'src/shared/guards/csrf.guard';
+import { CompleteRegistrationGuard } from 'src/shared/guards/complete-registration.guard';
 import { BodyIdPipe } from 'src/shared/pipes/body-id.pipe';
 import { newCartDto } from '../dtos/new-cart.dto';
 import { CartService } from '../services/cart.service';
@@ -25,7 +26,7 @@ import { DeleteCartItemDto } from '../dtos/delete-cat-item.dto';
 @Controller('site/cart')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
-  
+
   @Get()
   @ApiOperation({ summary: 'دریافت سبد خرید (کاربر یا مهمان)' })
   @ApiBearerAuth()
@@ -36,15 +37,20 @@ export class CartController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'ایجاد سبد خرید جدید یا افزودن محصول (کاربر یا مهمان)' })
+  @ApiOperation({
+    summary: 'ایجاد سبد خرید جدید یا افزودن محصول (کاربر یا مهمان)',
+  })
   @ApiBearerAuth()
   createNewCart(
     @Body(new BodyIdPipe(['productId'])) body: newCartDto,
     @User() user: string | null,
     @SessionId() sessionId: string | null,
   ) {
-    // اگر user لاگین باشد، از userId استفاده کن
-    // وگرنه از sessionId استفاده کن
+    // اگر user لاگین باشد، باید registrationStatus = complete باشد
+    // این چک در CompleteRegistrationGuard انجام می‌شود
+    // اما چون OptionalJwtGuard استفاده می‌کنیم، باید به صورت دستی چک کنیم
+    // یا از یک Guard ترکیبی استفاده کنیم
+    // فعلاً در service چک می‌کنیم
     return this.cartService.createCart(
       body,
       user || undefined,
@@ -132,18 +138,14 @@ export class CartController {
   @ApiOperation({ summary: 'Merge کردن سبد مهمان به سبد کاربر (بعد از لاگین)' })
   @ApiBearerAuth()
   @UseGuards(JwtGuard, CsrfGuard) // باید حتماً لاگین باشد
-  async mergeCart(
-    @User() user: string,
-    @SessionId() sessionId: string | null,
-  ) {
-    
+  async mergeCart(@User() user: string, @SessionId() sessionId: string | null) {
     if (!sessionId) {
       // اگر sessionId وجود نداشت، سبد کاربر را برگردان
       return this.cartService.getCart(user, undefined);
     }
 
     const mergedCart = await this.cartService.mergeCarts(user, sessionId);
-    
+
     if (mergedCart) {
       return this.cartService.getCartDetails(
         mergedCart._id.toString(),
@@ -151,7 +153,7 @@ export class CartController {
         undefined,
       );
     }
-    
+
     // اگر merge انجام نشد، سبد کاربر را برگردان
     return this.cartService.getCart(user, undefined);
   }

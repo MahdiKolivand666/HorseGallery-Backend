@@ -91,16 +91,16 @@ export class Product extends Document {
   @Prop({ default: false })
   lowCommission?: boolean; // آیا محصول اجرت کم دارد؟
 
-  // Product Type - جدید برای تمایز بین جواهر، سکه و شمش
+  // Product Type - جدید برای تمایز بین جواهر و سکه (شمش جدا شده است)
   @Prop({
     type: String,
-    enum: ['jewelry', 'coin', 'melted_gold'],
+    enum: ['jewelry', 'coin'],
     default: 'jewelry',
     index: true,
   })
   productType: string;
 
-  // Gold Info - اطلاعات اختصاصی سکه و شمش
+  // Gold Info - اطلاعات اختصاصی سکه (شمش جدا شده است)
   @Prop({
     type: {
       weight: Number, // وزن به گرم

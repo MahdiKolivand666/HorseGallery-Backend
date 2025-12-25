@@ -77,7 +77,7 @@ export class OptionalJwtGuard implements CanActivate {
       // Try to verify token
       try {
         const payload = await this.jwtService.verifyAsync(token);
-        
+
         if (payload && payload._id) {
           request['user'] = {
             _id: payload._id,
@@ -89,17 +89,20 @@ export class OptionalJwtGuard implements CanActivate {
         }
       } catch (verifyError) {
         // اگر token معتبر نبود، user را null می‌گذاریم و ادامه می‌دهیم
-        this.logger.debug(`Token verification failed, setting user to null: ${verifyError.message}`);
+        this.logger.debug(
+          `Token verification failed, setting user to null: ${verifyError.message}`,
+        );
         request['user'] = null;
       }
 
       return true;
     } catch (error) {
       // در صورت هر خطایی، user را null می‌گذاریم و ادامه می‌دهیم
-      this.logger.debug(`Error in OptionalJwtGuard, setting user to null: ${error.message}`);
+      this.logger.debug(
+        `Error in OptionalJwtGuard, setting user to null: ${error.message}`,
+      );
       request['user'] = null;
       return true;
     }
   }
 }
-

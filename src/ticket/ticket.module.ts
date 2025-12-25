@@ -10,9 +10,11 @@ import { TicketService } from './services/ticket.service';
 import { TicketController } from './controllers/ticket.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule, // ✅ برای استفاده از TokenBlacklistService در JwtGuard
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

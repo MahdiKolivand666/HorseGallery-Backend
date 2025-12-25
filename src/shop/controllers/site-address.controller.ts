@@ -1,0 +1,279 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { AddressService } from '../services/address.service';
+import { CreateAddressDto } from '../dtos/create-address.dto';
+import { UpdateAddressDto } from '../dtos/update-address.dto';
+import { OptionalJwtGuard } from 'src/shared/guards/optional-jwt.guard';
+import { JwtGuard } from 'src/shared/guards/jwt.guard';
+import { CsrfGuard } from 'src/shared/guards/csrf.guard';
+import { User } from 'src/shared/decorators/user.decorator';
+import { SessionId } from 'src/shared/decorators/session.decorator';
+
+@ApiTags('Site Address')
+@UseGuards(OptionalJwtGuard, CsrfGuard)
+@Controller('site/addresses')
+export class SiteAddressController {
+  constructor(private readonly addressService: AddressService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'دریافت لیست آدرس‌های کاربر یا مهمان' })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'لیست آدرس‌ها با موفقیت برگردانده شد',
+  })
+  async findAll(
+    @User() user: string | null,
+    @SessionId() sessionId: string | null,
+  ) {
+    const addresses = await this.addressService.findAll(
+      user || undefined,
+      sessionId || undefined,
+    );
+
+    return {
+      success: true,
+      data: addresses,
+    };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'دریافت یک آدرس خاص' })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'آدرس با موفقیت برگردانده شد',
+  })
+  @ApiResponse({ status: 404, description: 'آدرس یافت نشد' })
+  @ApiResponse({ status: 403, description: 'دسترسی ندارید' })
+  async findOne(
+    @Param('id') id: string,
+    @User() user: string | null,
+    @SessionId() sessionId: string | null,
+  ) {
+    const address = await this.addressService.findOne(
+      id,
+      user || undefined,
+      sessionId || undefined,
+    );
+
+    return {
+      success: true,
+      data: address,
+    };
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'افزودن آدرس جدید' })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 201,
+    description: 'آدرس با موفقیت افزوده شد',
+  })
+  @ApiResponse({ status: 400, description: 'خطا در اعتبارسنجی' })
+  async create(
+    @Body() body: CreateAddressDto,
+    @User() user: string | null,
+    @SessionId() sessionId: string | null,
+  ) {
+    // #region agent log - Hypothesis 1: بررسی فیلدها در request body
+    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'site-address.controller.ts:89',
+        message: 'controller create entry - check request body fields',
+        data: {
+          hasFirstName: !!body.firstName,
+          firstNameValue: body.firstName || null,
+          hasLastName: !!body.lastName,
+          lastNameValue: body.lastName || null,
+          hasNationalId: !!body.nationalId,
+          nationalIdValue: body.nationalId || null,
+          hasMobile: !!body.mobile,
+          mobileValue: body.mobile || null,
+          hasEmail: !!body.email,
+          emailValue: body.email || null,
+          hasNotes: !!body.notes,
+          notesValue: body.notes || null,
+          bodyKeys: Object.keys(body),
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: '1',
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    const address = await this.addressService.create(
+      body,
+      user || undefined,
+      sessionId || undefined,
+    );
+
+    // #region agent log - Hypothesis 6: بررسی response در controller
+    const addressPlain = address ? address.toObject() : null;
+    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'site-address.controller.ts:120',
+        message: 'controller response - check address fields',
+        data: {
+          responseFirstName: address?.firstName || null,
+          responseLastName: address?.lastName || null,
+          responseNationalId: address?.nationalId || null,
+          responseMobile: address?.mobile || null,
+          responseEmail: address?.email || null,
+          responseNotes: address?.notes || null,
+          addressKeys: addressPlain ? Object.keys(addressPlain) : [],
+          addressPlain: addressPlain,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: '6',
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    return {
+      success: true,
+      message: 'آدرس با موفقیت افزوده شد',
+      data: address,
+    };
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'به‌روزرسانی آدرس' })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'آدرس با موفقیت به‌روزرسانی شد',
+  })
+  @ApiResponse({ status: 404, description: 'آدرس یافت نشد' })
+  @ApiResponse({ status: 403, description: 'دسترسی ندارید' })
+  async update(
+    @Param('id') id: string,
+    @Body() body: UpdateAddressDto,
+    @User() user: string | null,
+    @SessionId() sessionId: string | null,
+  ) {
+    const address = await this.addressService.update(
+      id,
+      body,
+      user || undefined,
+      sessionId || undefined,
+    );
+
+    return {
+      success: true,
+      message: 'آدرس با موفقیت به‌روزرسانی شد',
+      data: address,
+    };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'حذف آدرس' })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'آدرس با موفقیت حذف شد',
+  })
+  @ApiResponse({ status: 404, description: 'آدرس یافت نشد' })
+  @ApiResponse({ status: 403, description: 'دسترسی ندارید' })
+  async delete(
+    @Param('id') id: string,
+    @User() user: string | null,
+    @SessionId() sessionId: string | null,
+  ) {
+    await this.addressService.delete(
+      id,
+      user || undefined,
+      sessionId || undefined,
+    );
+
+    return {
+      success: true,
+      message: 'آدرس با موفقیت حذف شد',
+    };
+  }
+
+  @Patch(':id/set-default')
+  @ApiOperation({ summary: 'تنظیم آدرس به عنوان پیش‌فرض' })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'آدرس به عنوان پیش‌فرض تنظیم شد',
+  })
+  @ApiResponse({ status: 404, description: 'آدرس یافت نشد' })
+  @ApiResponse({ status: 403, description: 'دسترسی ندارید' })
+  async setDefault(
+    @Param('id') id: string,
+    @User() user: string | null,
+    @SessionId() sessionId: string | null,
+  ) {
+    const address = await this.addressService.setDefault(
+      id,
+      user || undefined,
+      sessionId || undefined,
+    );
+
+    return {
+      success: true,
+      message: 'آدرس به عنوان پیش‌فرض تنظیم شد',
+      data: address,
+    };
+  }
+
+  @Post('merge')
+  @ApiOperation({
+    summary: 'Merge کردن آدرس‌های مهمان به کاربر (بعد از لاگین)',
+  })
+  @ApiBearerAuth()
+  @UseGuards(JwtGuard, CsrfGuard) // باید حتماً لاگین باشد
+  @ApiResponse({
+    status: 200,
+    description: 'آدرس‌ها با موفقیت merge شدند',
+  })
+  async mergeGuestAddresses(
+    @User() user: string,
+    @SessionId() sessionId: string | null,
+  ) {
+    if (!sessionId) {
+      // اگر sessionId وجود نداشت، فقط آدرس‌های کاربر را برگردان
+      const addresses = await this.addressService.findAll(user, undefined);
+      return {
+        success: true,
+        message: 'آدرس مهمان وجود ندارد',
+        data: addresses,
+      };
+    }
+
+    await this.addressService.mergeGuestAddresses(user, sessionId);
+
+    const addresses = await this.addressService.findAll(user, undefined);
+
+    return {
+      success: true,
+      message: 'آدرس‌ها با موفقیت merge شدند',
+      data: addresses,
+    };
+  }
+}

@@ -120,6 +120,15 @@ export class OrderService {
     const cart = await this.cartService.getCartDetails(cartId);
     const shipping = await this.shippingService.findOne(shippingId);
 
+    // ✅ بررسی انقضای cart قبل از ایجاد order
+    if (cart.expired) {
+      // ✅ Cart منقضی شده - حذف کن و error برگردان
+      await this.cartService.removeCartAndItems(cartId);
+      throw new BadRequestException(
+        'زمان شما تمام شده است. لطفاً مجدداً محصول را به سبد خرید اضافه کنید',
+      );
+    }
+
     // Validate cart has items
     if (!cart.items || cart.items.length === 0) {
       throw new BadRequestException('سبد خرید خالی است');
@@ -168,9 +177,15 @@ export class OrderService {
 
       for (const item of cart.items) {
         const price = item?.product?.price;
-        const discount = (item?.product as any)?.discountPrice || (item?.product as any)?.discount || 0;
+        const discount =
+          (item?.product as any)?.discountPrice ||
+          (item?.product as any)?.discount ||
+          0;
         const quantity = item?.quantity;
-        const productName = (item?.product as any)?.name || (item?.product as any)?.title || 'نامشخص';
+        const productName =
+          (item?.product as any)?.name ||
+          (item?.product as any)?.title ||
+          'نامشخص';
 
         // Use helper function for consistent calculation
         const itemPrices = calculateItemTotal(price, discount, quantity);
