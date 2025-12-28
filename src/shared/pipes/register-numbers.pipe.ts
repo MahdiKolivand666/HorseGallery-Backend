@@ -54,7 +54,7 @@ export class RegisterNumbersPipe implements PipeTransform {
 
       // بررسی فرمت
       if (!/^\d{10}$/.test(cleanNationalId)) {
-        throw new BadRequestException('کد ملی باید دقیقاً 10 رقم باشد');
+        throw new BadRequestException('کد ملی باید دقیقاً ۱۰ رقم باشد');
       }
 
       result.nationalId = cleanNationalId;
