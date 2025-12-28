@@ -57,10 +57,12 @@ import { ScheduleModule } from '@nestjs/schedule';
     ScheduleModule.forRoot(),
 
     // ThrottlerModule and ThrottlerGuard for rate limiting
+    // ✅ تنظیمات پیش‌فرض: 150 درخواست در دقیقه برای APIهای عمومی
+    // ✅ APIهای حساس (auth) توسط IpThrottleGuard با limit جداگانه مدیریت می‌شوند
     ThrottlerModule.forRoot([
       {
-        ttl: 60000,
-        limit: 10,
+        ttl: 60000, // 1 minute
+        limit: 150, // 150 requests per minute (برای APIهای عمومی)
       },
     ]),
 

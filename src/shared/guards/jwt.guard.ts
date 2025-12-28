@@ -28,7 +28,6 @@ export class JwtGuard implements CanActivate {
     ]);
 
     if (isPublic) {
-      this.logger.debug('Public route, skipping JWT authentication');
       return true;
     }
 
@@ -63,10 +62,6 @@ export class JwtGuard implements CanActivate {
         );
       }
 
-      // Log token for debugging (only first 20 chars for security)
-      this.logger.debug(`Verifying token: ${token.substring(0, 20)}...`);
-      this.logger.debug(`Token length: ${token.length}`);
-
       // Validate token format (JWT should have 3 parts separated by dots)
       const tokenParts = token.split('.');
       if (tokenParts.length !== 3) {
@@ -80,21 +75,10 @@ export class JwtGuard implements CanActivate {
 
       // Check if JwtService has secret configured
       const jwtServiceOptions = (this.jwtService as any).options;
-      this.logger.debug(
-        `JwtService secret configured: ${jwtServiceOptions?.secret ? 'Yes' : 'No'}`,
-      );
-      if (jwtServiceOptions?.secret) {
-        this.logger.debug(
-          `JwtService secret length: ${jwtServiceOptions.secret.length}`,
-        );
-      }
 
       let payload;
       try {
         payload = await this.jwtService.verifyAsync(token);
-        this.logger.debug(
-          `Token verified successfully. Payload: ${JSON.stringify(payload)}`,
-        );
       } catch (verifyError) {
         this.logger.error(
           `JWT verification failed: ${verifyError?.name} - ${verifyError?.message}`,
@@ -129,16 +113,10 @@ export class JwtGuard implements CanActivate {
         }
       }
 
-      // Log payload for debugging
-      this.logger.debug(`Token payload: ${JSON.stringify(payload)}`);
-      this.logger.debug(`Payload role: ${payload?.role}`);
-
       request['user'] = {
         _id: payload._id,
         role: payload?.role,
       };
-
-      this.logger.debug(`Request user set: ${JSON.stringify(request['user'])}`);
 
       return true;
     } catch (error) {

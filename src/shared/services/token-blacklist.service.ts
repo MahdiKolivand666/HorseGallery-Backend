@@ -32,9 +32,6 @@ export class TokenBlacklistService {
     } catch (error) {
       // اگر token قبلاً blacklist شده باشد، ignore می‌کنیم
       if (error.code === 11000) {
-        this.logger.debug(
-          `Token already blacklisted: ${tokenId.substring(0, 20)}...`,
-        );
         return;
       }
       throw error;
@@ -80,4 +77,3 @@ export class TokenBlacklistService {
     }
   }
 }
-

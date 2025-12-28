@@ -36,10 +36,6 @@ export class OrderService {
   async createOrder(body: CreateOrderDto, user: string) {
     const { cartId, addressId, shippingId } = body;
 
-    this.logger.debug(
-      `Creating order for user ${user}, cart ${cartId}, address ${addressId}, shipping ${shippingId}`,
-    );
-
     // Check if we're in development mode with test merchant
     const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
     const merchantId = this.configService.get<string>('MERCHANT_ID');
@@ -153,10 +149,6 @@ export class OrderService {
         ? shipping.price
         : 0;
 
-    this.logger.debug(
-      `Cart total: ${cart.prices.totalWithDiscount}, Shipping: ${shippingPrice}, Final: ${cart.prices.totalWithDiscount + shippingPrice}`,
-    );
-
     const order = new this.orderModel({
       user: user,
       shipping: shippingId,
@@ -189,10 +181,6 @@ export class OrderService {
 
         // Use helper function for consistent calculation
         const itemPrices = calculateItemTotal(price, discount, quantity);
-
-        this.logger.debug(
-          `OrderItem: ${productName} x${quantity} = ${itemPrices.priceWithDiscount} (saved: ${itemPrices.savings})`,
-        );
 
         const orderItem = new this.orderItemModel({
           order: order._id, // Types.ObjectId
@@ -398,8 +386,6 @@ export class OrderService {
       this.logger.log(
         `Creating payment request for amount ${finalPrice} Toman (${finalPrice * 10} Rials)`,
       );
-      this.logger.debug(`Bank URL: ${bankUrl}`);
-      this.logger.debug(`Callback URL: ${serverUrl}/site/order/callback`);
 
       const response = await axios.post(bankUrl, bankData, {
         timeout: 10000, // 10 second timeout
@@ -407,10 +393,6 @@ export class OrderService {
           'Content-Type': 'application/json',
         },
       });
-
-      this.logger.debug(
-        `Bank response status: ${response.status}, data: ${JSON.stringify(response.data)}`,
-      );
 
       if (response?.data?.data) {
         this.logger.log(

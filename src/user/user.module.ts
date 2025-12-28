@@ -5,7 +5,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User, userSchema } from './schemas/user.schema';
 import { AuthController } from './controllers/auth.controller';
 import { PanelController } from './controllers/panel.controller';
-import { Address, addressSchema } from './schemas/address.schema';
 import { AddressService } from './services/address.service';
 import { SmsService } from 'src/shared/services/sms.service';
 import { SharedModule } from 'src/shared/shared.module';
@@ -33,7 +32,6 @@ import {
     }),
     MongooseModule.forFeature([
       { name: User.name, schema: userSchema },
-      { name: Address.name, schema: addressSchema },
       { name: Order.name, schema: orderSchema },
       { name: ShopAddress.name, schema: shopAddressSchema },
     ]),

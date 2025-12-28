@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { User } from 'src/user/schemas/user.schema';
 import { Shipping } from './shipping.schema';
-import { Address } from 'src/user/schemas/address.schema';
+import { Address } from './address.schema';
 import { Cart } from './cart.schema';
 
 export enum OrderStatus {

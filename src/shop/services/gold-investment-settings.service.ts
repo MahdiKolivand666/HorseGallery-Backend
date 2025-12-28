@@ -29,7 +29,6 @@ export class GoldInvestmentSettingsService {
       this.cachedSettings &&
       now - this.cacheTimestamp < this.CACHE_DURATION
     ) {
-      this.logger.debug('استفاده از تنظیمات cache شده');
       return this.cachedSettings;
     }
 
@@ -95,6 +94,5 @@ export class GoldInvestmentSettingsService {
   clearCache(): void {
     this.cachedSettings = null;
     this.cacheTimestamp = 0;
-    this.logger.debug('Cache تنظیمات پاک شد');
   }
 }

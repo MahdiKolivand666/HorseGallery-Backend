@@ -23,6 +23,7 @@ import { JwtGuard } from 'src/shared/guards/jwt.guard';
 import { CsrfGuard } from 'src/shared/guards/csrf.guard';
 import { User } from 'src/shared/decorators/user.decorator';
 import { SessionId } from 'src/shared/decorators/session.decorator';
+import { AddressNumbersPipe } from 'src/shared/pipes/address-numbers.pipe';
 
 @ApiTags('Site Address')
 @UseGuards(OptionalJwtGuard, CsrfGuard)
@@ -87,71 +88,15 @@ export class SiteAddressController {
   })
   @ApiResponse({ status: 400, description: 'خطا در اعتبارسنجی' })
   async create(
-    @Body() body: CreateAddressDto,
+    @Body(new AddressNumbersPipe()) body: CreateAddressDto,
     @User() user: string | null,
     @SessionId() sessionId: string | null,
   ) {
-    // #region agent log - Hypothesis 1: بررسی فیلدها در request body
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'site-address.controller.ts:89',
-        message: 'controller create entry - check request body fields',
-        data: {
-          hasFirstName: !!body.firstName,
-          firstNameValue: body.firstName || null,
-          hasLastName: !!body.lastName,
-          lastNameValue: body.lastName || null,
-          hasNationalId: !!body.nationalId,
-          nationalIdValue: body.nationalId || null,
-          hasMobile: !!body.mobile,
-          mobileValue: body.mobile || null,
-          hasEmail: !!body.email,
-          emailValue: body.email || null,
-          hasNotes: !!body.notes,
-          notesValue: body.notes || null,
-          bodyKeys: Object.keys(body),
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '1',
-      }),
-    }).catch(() => {});
-    // #endregion
-
     const address = await this.addressService.create(
       body,
       user || undefined,
       sessionId || undefined,
     );
-
-    // #region agent log - Hypothesis 6: بررسی response در controller
-    const addressPlain = address ? address.toObject() : null;
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'site-address.controller.ts:120',
-        message: 'controller response - check address fields',
-        data: {
-          responseFirstName: address?.firstName || null,
-          responseLastName: address?.lastName || null,
-          responseNationalId: address?.nationalId || null,
-          responseMobile: address?.mobile || null,
-          responseEmail: address?.email || null,
-          responseNotes: address?.notes || null,
-          addressKeys: addressPlain ? Object.keys(addressPlain) : [],
-          addressPlain: addressPlain,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '6',
-      }),
-    }).catch(() => {});
-    // #endregion
 
     return {
       success: true,

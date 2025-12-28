@@ -28,7 +28,6 @@ export class CsrfGuard implements CanActivate {
     // Skip CSRF check in development mode for easier Swagger testing
     const isDevelopment = this.configService.get('NODE_ENV') !== 'production';
     if (isDevelopment) {
-      this.logger.debug('⚠️  CSRF Guard disabled in development mode');
       return true;
     }
 

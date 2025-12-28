@@ -21,11 +21,6 @@ export class RoleGuard implements CanActivate {
     const userRole = request?.user?.role;
     const user = request?.user;
 
-    this.logger.debug(
-      `Checking role: userRole=${userRole}, allowedRoles=${this.roles.join(', ')}`,
-    );
-    this.logger.debug(`User object: ${JSON.stringify(user)}`);
-
     if (!user) {
       this.logger.warn('User not found in request');
       throw new ForbiddenException('User not authenticated');
@@ -37,7 +32,6 @@ export class RoleGuard implements CanActivate {
     }
 
     if (this.roles.includes(userRole as Role)) {
-      this.logger.debug(`Access granted: ${userRole} is in allowed roles`);
       return true;
     } else {
       this.logger.warn(

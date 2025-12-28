@@ -18,15 +18,30 @@ export class IpThrottleGuard implements CanActivate {
 
   // In-memory storage for IP-based rate limiting
   // In production, use Redis for distributed systems
+  // Key format: "ip:${ip}:${routeType}" (routeType = 'sensitive' | 'public')
   private ipRequestCounts: Map<string, { count: number; resetTime: number }> =
     new Map();
   private userRequestCounts: Map<string, { count: number; resetTime: number }> =
     new Map();
 
-  // Limits
-  private readonly IP_LIMIT = 100; // requests per window
-  private readonly USER_LIMIT = 200; // requests per window (higher for authenticated users)
-  private readonly WINDOW_MS = 60 * 1000; // 1 minute
+  // Limits - APIهای عمومی (مثل لیست محصولات، cart، gold-price)
+  private readonly PUBLIC_API_LIMIT = 150; // 150 درخواست در دقیقه
+  private readonly PUBLIC_API_WINDOW_MS = 60 * 1000; // 1 minute
+
+  // Limits - APIهای حساس (مثل Login، OTP)
+  private readonly SENSITIVE_API_LIMIT = 5; // 5 درخواست در 2 دقیقه
+  private readonly SENSITIVE_API_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+
+  // Routes حساس که نیاز به limit سخت‌گیرانه دارند
+  private readonly SENSITIVE_ROUTES = [
+    '/auth/send-otp',
+    '/auth/verify-otp',
+    '/auth/sign-in',
+    '/auth/sign-up',
+    '/auth/confirm',
+    '/auth/resend',
+    '/auth/register',
+  ];
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
@@ -37,25 +52,41 @@ export class IpThrottleGuard implements CanActivate {
     // Get user ID if authenticated
     const userId = (request as any).user?._id?.toString();
 
+    // Get request path
+    const path = request.path;
+
+    // تعیین نوع API (حساس یا عمومی)
+    const isSensitiveRoute = this.isSensitiveRoute(path);
+
     const now = Date.now();
 
-    // Check IP-based limit
-    const ipAllowed = this.checkIpLimit(ip, now);
+    // Check IP-based limit (با limit مناسب برای نوع route)
+    const ipAllowed = this.checkIpLimit(ip, now, isSensitiveRoute, path);
     if (!ipAllowed) {
-      this.logger.warn(`IP rate limit exceeded for ${ip}`);
+      this.logger.warn(
+        `IP rate limit exceeded for ${ip} on ${path} (${isSensitiveRoute ? 'sensitive' : 'public'})`,
+      );
       throw new HttpException(
-        'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید',
+        {
+          message:
+            'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید',
+          code: 'RATE_LIMIT_EXCEEDED',
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
-    // Check user-based limit (if authenticated)
-    if (userId) {
+    // Check user-based limit (if authenticated) - فقط برای APIهای عمومی
+    if (userId && !isSensitiveRoute) {
       const userAllowed = this.checkUserLimit(userId, now);
       if (!userAllowed) {
         this.logger.warn(`User rate limit exceeded for user ${userId}`);
         throw new HttpException(
-          'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید',
+          {
+            message:
+              'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید',
+            code: 'RATE_LIMIT_EXCEEDED',
+          },
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
@@ -68,6 +99,13 @@ export class IpThrottleGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  /**
+   * بررسی اینکه آیا route حساس است یا نه
+   */
+  private isSensitiveRoute(path: string): boolean {
+    return this.SENSITIVE_ROUTES.some((route) => path.includes(route));
   }
 
   /**
@@ -93,15 +131,34 @@ export class IpThrottleGuard implements CanActivate {
 
   /**
    * Check and update IP-based rate limit
+   * @param ip - IP address
+   * @param now - Current timestamp
+   * @param isSensitiveRoute - Whether this is a sensitive route
+   * @param path - Request path (for logging)
    */
-  private checkIpLimit(ip: string, now: number): boolean {
-    const record = this.ipRequestCounts.get(ip);
+  private checkIpLimit(
+    ip: string,
+    now: number,
+    isSensitiveRoute: boolean,
+    path: string,
+  ): boolean {
+    // تعیین limit و window بر اساس نوع route
+    const limit = isSensitiveRoute
+      ? this.SENSITIVE_API_LIMIT
+      : this.PUBLIC_API_LIMIT;
+    const windowMs = isSensitiveRoute
+      ? this.SENSITIVE_API_WINDOW_MS
+      : this.PUBLIC_API_WINDOW_MS;
+
+    // Key برای storage: ترکیب IP و نوع route
+    const key = `ip:${ip}:${isSensitiveRoute ? 'sensitive' : 'public'}`;
+    const record = this.ipRequestCounts.get(key);
 
     if (!record || now > record.resetTime) {
       // Create new record or reset expired one
-      this.ipRequestCounts.set(ip, {
+      this.ipRequestCounts.set(key, {
         count: 1,
-        resetTime: now + this.WINDOW_MS,
+        resetTime: now + windowMs,
       });
       return true;
     }
@@ -110,7 +167,7 @@ export class IpThrottleGuard implements CanActivate {
     record.count++;
 
     // Check if limit exceeded
-    if (record.count > this.IP_LIMIT) {
+    if (record.count > limit) {
       return false;
     }
 
@@ -119,15 +176,19 @@ export class IpThrottleGuard implements CanActivate {
 
   /**
    * Check and update user-based rate limit
+   * فقط برای APIهای عمومی استفاده می‌شود
    */
   private checkUserLimit(userId: string, now: number): boolean {
+    const limit = this.PUBLIC_API_LIMIT; // استفاده از limit عمومی
+    const windowMs = this.PUBLIC_API_WINDOW_MS;
+
     const record = this.userRequestCounts.get(userId);
 
     if (!record || now > record.resetTime) {
       // Create new record or reset expired one
       this.userRequestCounts.set(userId, {
         count: 1,
-        resetTime: now + this.WINDOW_MS,
+        resetTime: now + windowMs,
       });
       return true;
     }
@@ -136,7 +197,7 @@ export class IpThrottleGuard implements CanActivate {
     record.count++;
 
     // Check if limit exceeded
-    if (record.count > this.USER_LIMIT) {
+    if (record.count > limit) {
       return false;
     }
 
@@ -166,10 +227,6 @@ export class IpThrottleGuard implements CanActivate {
       }
     }
 
-    if (cleanedIp > 0 || cleanedUser > 0) {
-      this.logger.debug(
-        `Cleaned up ${cleanedIp} IP records and ${cleanedUser} user records`,
-      );
-    }
+    // Cleaned expired records
   }
 }

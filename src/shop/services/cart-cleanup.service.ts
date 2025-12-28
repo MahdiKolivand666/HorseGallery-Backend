@@ -24,9 +24,6 @@ export class CartCleanupService {
     // ❌ این متد دیگر اجرا نمی‌شود
     // Cart ها دیگر به صورت خودکار حذف نمی‌شوند
     // Cart ها فقط هنگام checkout (createOrder) بررسی می‌شوند
-    this.logger.debug(
-      'Cart cleanup service غیرفعال شده - Cart ها فقط هنگام checkout بررسی می‌شوند',
-    );
     return;
   }
 

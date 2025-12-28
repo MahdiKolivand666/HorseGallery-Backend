@@ -10,7 +10,7 @@ import {
   productCategorySchema,
 } from '../product/schemas/product-category.schema';
 import { Blog, BlogSchema } from '../blog/schemas/blog.schema';
-import { Address, addressSchema } from '../user/schemas/address.schema';
+import { Address, addressSchema } from '../shop/schemas/address.schema';
 import { SharedModule } from 'src/shared/shared.module';
 
 @Module({

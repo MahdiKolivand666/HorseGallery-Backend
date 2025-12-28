@@ -30,7 +30,6 @@ export class OptionalJwtGuard implements CanActivate {
     ]);
 
     if (isPublic) {
-      this.logger.debug('Public route, skipping JWT authentication');
       return true;
     }
 
@@ -43,7 +42,6 @@ export class OptionalJwtGuard implements CanActivate {
 
       if (!authHeader) {
         // اگر header وجود نداشت، user را null می‌گذاریم و ادامه می‌دهیم
-        this.logger.debug('No authorization header, setting user to null');
         request['user'] = null;
         return true;
       }
@@ -61,7 +59,6 @@ export class OptionalJwtGuard implements CanActivate {
       }
 
       if (!token || token === 'valid-token' || token === 'Bearer') {
-        this.logger.debug('Invalid token format, setting user to null');
         request['user'] = null;
         return true;
       }
@@ -69,7 +66,6 @@ export class OptionalJwtGuard implements CanActivate {
       // Validate token format
       const tokenParts = token.split('.');
       if (tokenParts.length !== 3) {
-        this.logger.debug('Invalid JWT format, setting user to null');
         request['user'] = null;
         return true;
       }
@@ -83,24 +79,17 @@ export class OptionalJwtGuard implements CanActivate {
             _id: payload._id,
             role: payload?.role,
           };
-          this.logger.debug(`User authenticated: ${payload._id}`);
         } else {
           request['user'] = null;
         }
       } catch (verifyError) {
         // اگر token معتبر نبود، user را null می‌گذاریم و ادامه می‌دهیم
-        this.logger.debug(
-          `Token verification failed, setting user to null: ${verifyError.message}`,
-        );
         request['user'] = null;
       }
 
       return true;
     } catch (error) {
       // در صورت هر خطایی، user را null می‌گذاریم و ادامه می‌دهیم
-      this.logger.debug(
-        `Error in OptionalJwtGuard, setting user to null: ${error.message}`,
-      );
       request['user'] = null;
       return true;
     }

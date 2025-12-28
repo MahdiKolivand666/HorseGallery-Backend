@@ -98,7 +98,6 @@ export class GoldPriceFetcherService {
       this.cachedPrice &&
       now - this.cachedPrice.timestamp < this.CACHE_DURATION
     ) {
-      this.logger.debug('استفاده از قیمت cache شده');
       return this.cachedPrice.price;
     }
 
@@ -124,8 +123,6 @@ export class GoldPriceFetcherService {
       // پیدا کردن قیمت طلای 24 عیار
       let gold24K = data.gold.find((item) => item.symbol === 'IR_GOLD_24K');
 
-      this.logger.debug(`IR_GOLD_24K پیدا شد: ${gold24K ? 'بله' : 'خیر'}`);
-
       // اگر 24 عیار پیدا نشد، از 18 عیار محاسبه کن
       if (!gold24K) {
         const gold18K = data.gold.find((item) => item.symbol === 'IR_GOLD_18K');
@@ -147,10 +144,6 @@ export class GoldPriceFetcherService {
         );
         throw new Error('قیمت طلای 24 عیار در response یافت نشد');
       }
-
-      this.logger.debug(
-        `قیمت طلای 24 عیار: ${gold24K.price.toLocaleString()} ${gold24K.unit}`,
-      );
 
       // تبدیل قیمت به قیمت هر گرم
       // قیمت API برای هر گرم است (بر اساس response)

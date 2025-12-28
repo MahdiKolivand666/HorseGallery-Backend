@@ -5,23 +5,12 @@ import { Document, Types } from 'mongoose';
   timestamps: true,
   collection: 'addresses', // ✅ نام collection در database
   strict: true, // ✅ فقط فیلدهای تعریف شده را قبول کن (اما همه فیلدها در schema موجود هستند)
-  validateBeforeSave: false, // ✅ غیرفعال کردن validation برای جلوگیری از خطای `user` required
+  validateBeforeSave: false,
 })
 export class Address extends Document {
   declare _id: Types.ObjectId;
 
   // User/Session identification
-  // ✅ فیلد `user` برای backward compatibility (همیشه مقدار دارد - برابر با userId)
-  @Prop({
-    type: Types.ObjectId,
-    ref: 'User',
-    required: false,
-    index: false,
-    default: null,
-    select: false, // ✅ در query ها برگردانده نمی‌شود
-  })
-  user?: Types.ObjectId | string | null; // Legacy field - برای backward compatibility (همیشه برابر با userId است)
-
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
@@ -44,8 +33,8 @@ export class Address extends Document {
   @Prop({
     required: true,
     trim: true,
-    minlength: 1,
-    maxlength: 100,
+    minlength: 3,
+    maxlength: 25,
   })
   title: string; // عنوان آدرس (مثلاً: منزل، محل کار)
 
@@ -76,7 +65,7 @@ export class Address extends Document {
     required: true,
     trim: true,
     minlength: 10,
-    maxlength: 500,
+    maxlength: 200,
   })
   address: string; // آدرس کامل
 
@@ -85,7 +74,7 @@ export class Address extends Document {
     required: true,
     trim: true,
     minlength: 2,
-    maxlength: 50,
+    maxlength: 30,
   })
   firstName: string; // نام
 
@@ -93,7 +82,7 @@ export class Address extends Document {
     required: true,
     trim: true,
     minlength: 2,
-    maxlength: 50,
+    maxlength: 30,
   })
   lastName: string; // نام خانوادگی
 
@@ -134,7 +123,7 @@ export class Address extends Document {
     type: String,
     required: false,
     trim: true,
-    maxlength: 500,
+    maxlength: 200,
     default: null,
   })
   notes?: string | null; // توضیحات تکمیلی (اختیاری - می‌تواند null باشد)
@@ -149,12 +138,6 @@ export const addressSchema = SchemaFactory.createForClass(Address);
 // ✅ Explicitly set validateBeforeSave to false
 addressSchema.set('validateBeforeSave', false);
 
-// ✅ Explicitly set user field as optional (برای جلوگیری از خطای required)
-if (addressSchema.path('user')) {
-  addressSchema.path('user').required(false);
-  addressSchema.path('user').default(null);
-}
-
 // ✅ حذف فیلدهای قدیمی از schema (اگر وجود دارند)
 if (addressSchema.path('recipientName')) {
   addressSchema.remove('recipientName');
@@ -162,29 +145,6 @@ if (addressSchema.path('recipientName')) {
 if (addressSchema.path('recipientMobile')) {
   addressSchema.remove('recipientMobile');
 }
-
-// #region agent log - بررسی schema paths قبل از add
-const pathsBefore = Object.keys(addressSchema.paths);
-fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    location: 'address.schema.ts:162',
-    message: 'schema paths before add - check if add code runs',
-    data: {
-      pathsBefore: pathsBefore,
-      hasRecipientName: !!addressSchema.path('recipientName'),
-      hasRecipientMobile: !!addressSchema.path('recipientMobile'),
-      hasFirstName: !!addressSchema.path('firstName'),
-      hasLastName: !!addressSchema.path('lastName'),
-    },
-    timestamp: Date.now(),
-    sessionId: 'debug-session',
-    runId: 'run1',
-    hypothesisId: 'schema-fix',
-  }),
-}).catch(() => {});
-// #endregion
 
 // ✅ اطمینان از وجود فیلدهای جدید در schema paths
 // اگر فیلدها در schema paths نیستند، آنها را اضافه می‌کنیم
@@ -195,7 +155,7 @@ if (!addressSchema.path('firstName')) {
       required: true,
       trim: true,
       minlength: 2,
-      maxlength: 50,
+      maxlength: 30,
     },
   });
 }
@@ -206,7 +166,7 @@ if (!addressSchema.path('lastName')) {
       required: true,
       trim: true,
       minlength: 2,
-      maxlength: 50,
+      maxlength: 30,
     },
   });
 }
@@ -255,7 +215,7 @@ if (!addressSchema.path('notes')) {
       type: String,
       required: false,
       trim: true,
-      maxlength: 500,
+      maxlength: 200,
       default: null,
     },
   });
@@ -282,33 +242,6 @@ if (!addressSchema.path('sessionId')) {
     },
   });
 }
-
-// #region agent log - بررسی schema paths بعد از add
-const pathsAfter = Object.keys(addressSchema.paths);
-fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    location: 'address.schema.ts:270',
-    message: 'schema paths after add - check if fields were added',
-    data: {
-      pathsAfter: pathsAfter,
-      hasFirstName: !!addressSchema.path('firstName'),
-      hasLastName: !!addressSchema.path('lastName'),
-      hasNationalId: !!addressSchema.path('nationalId'),
-      hasMobile: !!addressSchema.path('mobile'),
-      hasEmail: !!addressSchema.path('email'),
-      hasNotes: !!addressSchema.path('notes'),
-      hasRecipientName: !!addressSchema.path('recipientName'),
-      hasRecipientMobile: !!addressSchema.path('recipientMobile'),
-    },
-    timestamp: Date.now(),
-    sessionId: 'debug-session',
-    runId: 'run1',
-    hypothesisId: 'schema-fix',
-  }),
-}).catch(() => {});
-// #endregion
 
 // ✅ Validation: یا userId یا sessionId باید وجود داشته باشد
 addressSchema.pre('save', function (next) {

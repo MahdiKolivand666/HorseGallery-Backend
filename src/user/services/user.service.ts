@@ -1144,13 +1144,6 @@ export class UserService {
     // ✅ مبلغ کیف پول (از فیلد walletBalance در User model)
     const walletBalance = user.walletBalance || 0;
 
-    // ✅ Logging برای debugging (فقط در development)
-    if (process.env.NODE_ENV !== 'production') {
-      this.logger.debug(
-        `Dashboard for user ${userId}: orders=${ordersCount}, addresses=${addressesCount}, wallet=${walletBalance}`,
-      );
-    }
-
     return {
       success: true,
       data: {

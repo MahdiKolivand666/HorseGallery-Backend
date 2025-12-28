@@ -8,13 +8,17 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { MaxLines } from 'src/shared/validators/max-lines.validator';
 
 export class CreateAddressDto {
   // بخش آدرس
   @IsString()
   @IsNotEmpty({ message: 'عنوان آدرس الزامی است' })
-  @MinLength(1, { message: 'عنوان آدرس باید حداقل 1 کاراکتر باشد' })
-  @MaxLength(100, { message: 'عنوان آدرس نمی‌تواند بیشتر از 100 کاراکتر باشد' })
+  @MinLength(3, { message: 'عنوان آدرس باید حداقل ۳ کاراکتر باشد' })
+  @MaxLength(25, { message: 'عنوان آدرس نمی‌تواند بیشتر از ۲۵ کاراکتر باشد' })
+  @Matches(/^[\u0600-\u06FF\s،]+$/, {
+    message: 'عنوان آدرس باید فقط به فارسی وارد شود',
+  })
   title: string;
 
   @IsString()
@@ -31,36 +35,48 @@ export class CreateAddressDto {
 
   @IsString()
   @IsNotEmpty({ message: 'کد پستی الزامی است' })
-  @Matches(/^\d{10}$/, { message: 'کد پستی باید دقیقاً 10 رقم باشد' })
+  @Matches(/^\d{10}$/, { message: 'کد پستی باید دقیقاً ۱۰ رقم باشد' })
   postalCode: string;
 
   @IsString()
   @IsNotEmpty({ message: 'آدرس الزامی است' })
-  @MinLength(10, { message: 'آدرس باید حداقل 10 کاراکتر باشد' })
-  @MaxLength(500, { message: 'آدرس نمی‌تواند بیشتر از 500 کاراکتر باشد' })
+  @MinLength(10, { message: 'آدرس باید حداقل ۱۰ کاراکتر باشد' })
+  @MaxLength(200, { message: 'آدرس نمی‌تواند بیشتر از ۲۰۰ کاراکتر باشد' })
+  @Matches(/^[\u0600-\u06FF\u06F0-\u06F9\s،.؛:]+$/, {
+    message: 'آدرس باید فقط به فارسی وارد شود',
+  })
+  @MaxLines(3, { message: 'آدرس نمی‌تواند بیشتر از ۳ خط باشد' })
   address: string;
 
   // بخش مشخصات سفارش دهنده
   @IsString()
   @IsNotEmpty({ message: 'نام الزامی است' })
-  @MinLength(2, { message: 'نام باید حداقل 2 کاراکتر باشد' })
-  @MaxLength(50, { message: 'نام نمی‌تواند بیشتر از 50 کاراکتر باشد' })
+  @MinLength(2, { message: 'نام باید حداقل ۲ کاراکتر باشد' })
+  @MaxLength(30, { message: 'نام نمی‌تواند بیشتر از ۳۰ کاراکتر باشد' })
+  @Matches(/^[\u0600-\u06FF\s]+$/, {
+    message: 'نام باید فقط شامل حروف فارسی باشد',
+  })
   firstName: string;
 
   @IsString()
   @IsNotEmpty({ message: 'نام خانوادگی الزامی است' })
-  @MinLength(2, { message: 'نام خانوادگی باید حداقل 2 کاراکتر باشد' })
-  @MaxLength(50, { message: 'نام خانوادگی نمی‌تواند بیشتر از 50 کاراکتر باشد' })
+  @MinLength(2, { message: 'نام خانوادگی باید حداقل ۲ کاراکتر باشد' })
+  @MaxLength(30, { message: 'نام خانوادگی نمی‌تواند بیشتر از ۳۰ کاراکتر باشد' })
+  @Matches(/^[\u0600-\u06FF\s]+$/, {
+    message: 'نام خانوادگی باید فقط شامل حروف فارسی باشد',
+  })
   lastName: string;
 
   @IsString()
   @IsNotEmpty({ message: 'کد ملی الزامی است' })
-  @Matches(/^\d{10}$/, { message: 'کد ملی باید دقیقاً 10 رقم باشد' })
+  @Matches(/^\d{10}$/, { message: 'کد ملی باید دقیقاً ۱۰ رقم باشد' })
   nationalId: string;
 
   @IsString()
   @IsNotEmpty({ message: 'شماره موبایل الزامی است' })
-  @Matches(/^09\d{9}$/, { message: 'فرمت شماره موبایل صحیح نیست' })
+  @Matches(/^09\d{9}$/, {
+    message: 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد',
+  })
   mobile: string;
 
   @IsString()
@@ -76,7 +92,13 @@ export class CreateAddressDto {
 
   @IsString()
   @IsOptional()
-  @MaxLength(500, { message: 'توضیحات نمی‌تواند بیشتر از 500 کاراکتر باشد' })
+  @MaxLength(200, { message: 'توضیحات نمی‌تواند بیشتر از ۲۰۰ کاراکتر باشد' })
+  @ValidateIf(
+    (o) => o.notes !== null && o.notes !== undefined && o.notes.trim() !== '',
+  )
+  @Matches(/^[\u0600-\u06FF\u06F0-\u06F9\s،.؛:]*$/, {
+    message: 'توضیحات باید فقط به فارسی وارد شود',
+  })
   notes?: string | null; // ✅ می‌تواند null باشد
 
   @IsBoolean()

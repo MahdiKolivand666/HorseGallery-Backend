@@ -53,10 +53,6 @@ export class GoldInvestmentService {
     const goldPricePerGram =
       await this.goldPriceFetcherService.getRealTimeGoldPrice(18);
 
-    this.logger.debug(
-      `قیمت لحظه‌ای طلا از API دریافت شد: ${goldPricePerGram.toLocaleString()} تومان`,
-    );
-
     if (!goldPricePerGram || goldPricePerGram <= 0) {
       throw new BadRequestException('قیمت طلا معتبر نیست');
     }

@@ -282,9 +282,6 @@ export class CartService {
     let finalSessionId = sessionId;
     if (!userId && !sessionId) {
       finalSessionId = this.generateSessionId();
-      this.logger.debug(
-        `Generated new sessionId for getCart: ${finalSessionId}`,
-      );
     }
 
     const cart = await this.findOrCreateCart(userId, finalSessionId);
@@ -351,7 +348,6 @@ export class CartService {
     let finalSessionId = sessionId;
     if (!userId && !sessionId) {
       finalSessionId = this.generateSessionId();
-      this.logger.debug(`Generated new sessionId: ${finalSessionId}`);
     }
 
     // بررسی اینکه آیا سبدی وجود دارد یا نه
@@ -518,10 +514,6 @@ export class CartService {
   async getPrices(id: string) {
     const items = await this.findCartItem(id);
 
-    this.logger.debug(
-      `Calculating prices for cart ${id} with ${items.length} items`,
-    );
-
     // ✅ محاسبه مستقیم قیمت‌ها بدون استفاده از discount (برای جلوگیری از خطای rounding)
     let totalWithDiscount = 0;
     let totalWithoutDiscount = 0;
@@ -554,10 +546,6 @@ export class CartService {
       totalWithoutDiscount > 0
         ? Math.round((savings / totalWithoutDiscount) * 100)
         : 0;
-
-    this.logger.debug(
-      `Cart total: ${totalWithDiscount} (saved: ${savings} - ${savingsPercentage}%)`,
-    );
 
     return {
       totalWithoutDiscount,

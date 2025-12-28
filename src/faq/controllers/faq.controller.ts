@@ -65,4 +65,3 @@ export class FAQController {
     return this.faqService.incrementHelpful(id);
   }
 }
-

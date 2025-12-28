@@ -1,28 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { AddressQueryDto } from '../dtos/address-query.dto';
 import { sortFunction } from 'src/shared/utils/sort-utils';
 import { UpdateAddressDto } from '../dtos/update-address.dto';
-import { Address } from '../schemas/address.schema';
+import { Address as ShopAddress } from 'src/shop/schemas/address.schema';
 import { AddressDto } from '../dtos/address.dto';
 
 @Injectable()
 export class AddressService {
   constructor(
-    @InjectModel(Address.name)
-    private readonly addressModel: Model<Address>,
+    @InjectModel(ShopAddress.name)
+    private readonly addressModel: Model<ShopAddress>,
   ) {}
 
   async findAll(
     queryParams: AddressQueryDto,
     selectObject: Record<string, 0 | 1> = { __v: 0 },
   ) {
-    const { limit = 10, page = 1, user } = queryParams;
+    const { limit = 10, page = 1, userId } = queryParams;
 
     const query: Record<string, unknown> = {};
-    if (user) query.user = user;
+    if (userId) query.userId = new Types.ObjectId(userId);
 
     const sortObject = sortFunction(queryParams?.sort);
 
@@ -52,8 +51,26 @@ export class AddressService {
     }
   }
 
-  async create(body: AddressDto, user: string) {
-    const newAddress = new this.addressModel({ ...body, user: user });
+  async create(body: AddressDto, userId: string) {
+    // ✅ تبدیل AddressDto قدیمی به format جدید
+    const addressData = {
+      title: body.title || 'خانه',
+      province: body.province,
+      city: body.city,
+      postalCode: body.postalCode || '',
+      address: body.address,
+      // تبدیل recipientName/recipientMobile به firstName/lastName/mobile
+      firstName: body.recipientName || body.receiverName || '',
+      lastName: '', // AddressDto قدیمی lastName ندارد
+      nationalId: '', // AddressDto قدیمی nationalId ندارد
+      mobile: body.recipientMobile || body.receiverMobile || '',
+      email: null,
+      notes: body.content || null,
+      isDefault: body.isDefault ?? false,
+      userId: new Types.ObjectId(userId),
+    };
+
+    const newAddress = new this.addressModel(addressData);
     await newAddress.save();
     return newAddress;
   }

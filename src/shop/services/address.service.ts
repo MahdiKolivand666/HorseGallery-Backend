@@ -74,41 +74,24 @@ export class AddressService {
     userId?: string,
     sessionId?: string,
   ): Promise<Address> {
-    // #region agent log - Hypothesis 1: بررسی فیلدها در body
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'address.service.ts:72',
-        message: 'service create entry - check body fields',
-        data: {
-          hasFirstName: !!body.firstName,
-          firstNameValue: body.firstName || null,
-          hasLastName: !!body.lastName,
-          lastNameValue: body.lastName || null,
-          hasNationalId: !!body.nationalId,
-          nationalIdValue: body.nationalId || null,
-          hasMobile: !!body.mobile,
-          mobileValue: body.mobile || null,
-          hasEmail: !!body.email,
-          emailValue: body.email || null,
-          hasNotes: !!body.notes,
-          notesValue: body.notes || null,
-          bodyKeys: Object.keys(body),
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '1',
-      }),
-    }).catch(() => {});
-    // #endregion
-
     // بررسی اینکه یا userId یا sessionId وجود داشته باشد
     if (!userId && !sessionId) {
       throw new BadRequestException(
         'برای افزودن آدرس باید لاگین باشید یا sessionId داشته باشید',
       );
+    }
+
+    // ✅ بررسی محدودیت 2 آدرس برای کاربران لاگین شده
+    if (userId) {
+      const userAddresses = await this.addressModel
+        .find({ userId: new Types.ObjectId(userId) })
+        .exec();
+      if (userAddresses.length >= 2) {
+        throw new BadRequestException({
+          message: ['بیشتر از ۲ آدرس نمی‌توانید اضافه کنید'],
+          code: 'MAX_ADDRESSES_EXCEEDED',
+        });
+      }
     }
 
     // اگر isDefault true باشد، آدرس‌های قبلی پیش‌فرض را false کن
@@ -137,101 +120,13 @@ export class AddressService {
       // فیلدهای کاربر
       userId: userId ? new Types.ObjectId(userId) : null,
       sessionId: sessionId?.trim() || sessionId || null,
-      user: userId ? new Types.ObjectId(userId) : null,
     };
-
-    // #region agent log - Hypothesis 2: بررسی فیلدها در addressData
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'address.service.ts:111',
-        message: 'addressData after construction - check fields',
-        data: {
-          addressDataFirstName: addressData.firstName || null,
-          addressDataLastName: addressData.lastName || null,
-          addressDataNationalId: addressData.nationalId || null,
-          addressDataMobile: addressData.mobile || null,
-          addressDataEmail: addressData.email || null,
-          addressDataNotes: addressData.notes || null,
-          addressDataKeys: Object.keys(addressData),
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '2',
-      }),
-    }).catch(() => {});
-    // #endregion
 
     // ایجاد آدرس
     const newAddress = new this.addressModel(addressData);
 
-    // #region agent log - Hypothesis 2,3: بررسی schema paths و فیلدها در model بعد از constructor
-    const schemaPaths = Object.keys(this.addressModel.schema.paths);
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'address.service.ts:125',
-        message: 'model after constructor - check schema paths and fields',
-        data: {
-          modelFirstName: newAddress.get('firstName') || null,
-          modelLastName: newAddress.get('lastName') || null,
-          modelNationalId: newAddress.get('nationalId') || null,
-          modelMobile: newAddress.get('mobile') || null,
-          modelEmail: newAddress.get('email') || null,
-          modelNotes: newAddress.get('notes') || null,
-          schemaPaths: schemaPaths,
-          hasFirstNamePath: 'firstName' in this.addressModel.schema.paths,
-          hasLastNamePath: 'lastName' in this.addressModel.schema.paths,
-          hasNationalIdPath: 'nationalId' in this.addressModel.schema.paths,
-          hasMobilePath: 'mobile' in this.addressModel.schema.paths,
-          hasEmailPath: 'email' in this.addressModel.schema.paths,
-          hasNotesPath: 'notes' in this.addressModel.schema.paths,
-          strictMode: this.addressModel.schema.get('strict'),
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '2,3',
-      }),
-    }).catch(() => {});
-    // #endregion
-
-    // تنظیم فیلد user
-    if (userId) {
-      newAddress.set('user', new Types.ObjectId(userId));
-    } else {
-      newAddress.set('user', null);
-    }
-
     // ذخیره با bypass کردن validation
     await newAddress.save({ validateBeforeSave: false });
-
-    // #region agent log - Hypothesis 4: بررسی فیلدها در model بعد از save
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'address.service.ts:145',
-        message: 'model after save - check fields',
-        data: {
-          modelFirstName: newAddress.get('firstName') || null,
-          modelLastName: newAddress.get('lastName') || null,
-          modelNationalId: newAddress.get('nationalId') || null,
-          modelMobile: newAddress.get('mobile') || null,
-          modelEmail: newAddress.get('email') || null,
-          modelNotes: newAddress.get('notes') || null,
-          addressId: newAddress._id?.toString() || null,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '4',
-      }),
-    }).catch(() => {});
-    // #endregion
 
     // ✅ Force update با استفاده از MongoDB driver برای ذخیره فیلدهای بخش دوم
     // این کار باعث می‌شود که فیلدها حتی اگر در schema paths نباشند، ذخیره شوند
@@ -258,60 +153,9 @@ export class AddressService {
       .findById(newAddress._id)
       .exec();
 
-    // #region agent log - Hypothesis 5: بررسی فیلدها در savedAddress بعد از findById
-    const savedAddressPlain = savedAddress ? savedAddress.toObject() : null;
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'address.service.ts:165',
-        message: 'savedAddress after findById - check fields',
-        data: {
-          savedFirstName: savedAddress?.firstName || null,
-          savedLastName: savedAddress?.lastName || null,
-          savedNationalId: savedAddress?.nationalId || null,
-          savedMobile: savedAddress?.mobile || null,
-          savedEmail: savedAddress?.email || null,
-          savedNotes: savedAddress?.notes || null,
-          savedAddressKeys: savedAddressPlain
-            ? Object.keys(savedAddressPlain)
-            : [],
-          savedAddressPlain: savedAddressPlain,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '5',
-      }),
-    }).catch(() => {});
-    // #endregion
-
     if (!savedAddress) {
       throw new BadRequestException('خطا در ذخیره آدرس');
     }
-
-    // #region agent log - Hypothesis 6: بررسی فیلدها در return value
-    fetch('http://127.0.0.1:7243/ingest/68d9a1ae-d5d1-4778-ac8b-8408cd3a7459', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'address.service.ts:180',
-        message: 'return value - check fields before return',
-        data: {
-          returnFirstName: savedAddress.firstName || null,
-          returnLastName: savedAddress.lastName || null,
-          returnNationalId: savedAddress.nationalId || null,
-          returnMobile: savedAddress.mobile || null,
-          returnEmail: savedAddress.email || null,
-          returnNotes: savedAddress.notes || null,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: '6',
-      }),
-    }).catch(() => {});
-    // #endregion
 
     return savedAddress;
   }

@@ -47,7 +47,6 @@ async function createAddressesCollection() {
       // فیلدهای شناسایی کاربر
       userId: null,
       sessionId: null,
-      user: null,
 
       // بخش آدرس
       title: 'sample',
@@ -103,7 +102,6 @@ async function createAddressesCollection() {
     console.log('فیلدهای شناسایی کاربر:');
     console.log('  - userId (ObjectId, indexed)');
     console.log('  - sessionId (String, indexed)');
-    console.log('  - user (ObjectId, legacy)');
     console.log('\nبخش آدرس:');
     console.log('  - title (String, required)');
     console.log('  - province (String, required)');

@@ -42,11 +42,8 @@ export class CacheInterceptor implements NestInterceptor {
     // Check if cached data exists and is not expired
     const cached = this.cache.get(fullCacheKey);
     if (cached && cached.expiry > Date.now()) {
-      this.logger.debug(`Cache hit: ${fullCacheKey}`);
       return of(cached.data);
     }
-
-    this.logger.debug(`Cache miss: ${fullCacheKey}`);
 
     // Execute request and cache the response
     return next.handle().pipe(
@@ -55,7 +52,6 @@ export class CacheInterceptor implements NestInterceptor {
           data,
           expiry: Date.now() + cacheTTL * 1000,
         });
-        this.logger.debug(`Cached: ${fullCacheKey} for ${cacheTTL}s`);
       }),
     );
   }
@@ -76,9 +72,7 @@ export class CacheInterceptor implements NestInterceptor {
       }
     }
 
-    if (cleaned > 0) {
-      this.logger.debug(`Cleaned ${cleaned} expired cache entries`);
-    }
+    // Cleaned expired cache entries
   }
 
   // Method to manually clear cache

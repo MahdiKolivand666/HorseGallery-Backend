@@ -42,9 +42,9 @@ export class PanelController {
   @Post('address')
   createAddress(
     @Body(new PostalCodePipe(), new ReceiverMobilePipe()) body: AddressDto,
-    @User() user: string,
+    @User() userId: string,
   ) {
-    return this.addressService.create(body, user);
+    return this.addressService.create(body, userId);
   }
 
   @Get('address/:id')
