@@ -33,6 +33,10 @@ import { TokenBlacklistService } from './services/token-blacklist.service';
   ],
   controllers: [SecurityLogController, ImagesController],
   providers: [SecurityLogService, TokenBlacklistService],
-  exports: [SecurityLogService, TokenBlacklistService],
+  exports: [
+    SecurityLogService,
+    TokenBlacklistService,
+    JwtModule, // ✅ Export JwtModule برای استفاده در سایر modules
+  ],
 })
 export class SharedModule {}

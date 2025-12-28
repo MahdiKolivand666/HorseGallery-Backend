@@ -36,6 +36,7 @@ import { FAQModule } from './faq/faq.module';
 import { GoldPriceModule } from './gold-price/gold-price.module';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { MigrationModule } from './migrations/migration.module';
+import { LocationModule } from './location/location.module';
 import { AuditLogService } from './shared/services/audit-log.service';
 import { ApiKeyService } from './shared/services/api-key.service';
 import { ApiKey, ApiKeySchema } from './shared/schemas/api-key.schema';
@@ -99,6 +100,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     GoldPriceModule,
     AnnouncementModule,
     MigrationModule,
+    LocationModule,
   ],
   controllers: [AppController],
   providers: [
