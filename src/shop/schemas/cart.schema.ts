@@ -27,6 +27,9 @@ export class Cart extends Document {
 
   @Prop({ type: Date })
   expiresAt: Date; // زمان انقضای سبد خرید (10 دقیقه بعد از lastActivityAt)
+
+  @Prop({ type: Date })
+  expiredNotifiedAt?: Date; // زمان اولین اطلاع‌رسانی expired به کاربر (برای پاک کردن items بعد از اولین نمایش)
 }
 
 export const cartSchema = SchemaFactory.createForClass(Cart);

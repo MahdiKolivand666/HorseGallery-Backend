@@ -44,6 +44,8 @@ export class CartCleanupService {
         const expirationTime = new Date();
         expirationTime.setMinutes(expirationTime.getMinutes() + 10);
         cart.expiresAt = expirationTime;
+        // ✅ Reset expiredNotifiedAt چون cart دوباره فعال شده است
+        cart.expiredNotifiedAt = undefined;
         await cart.save();
       }
     } catch (error) {

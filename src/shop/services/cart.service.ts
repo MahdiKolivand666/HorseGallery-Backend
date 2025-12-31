@@ -395,22 +395,56 @@ export class CartService {
     const isExpired = cart.expiresAt && cart.expiresAt < now;
 
     if (isExpired) {
-      // ✅ Cart منقضی شده - حذف نکن، فقط expired flag را set کن
-      // ✅ Cart فقط هنگام checkout (createOrder) حذف می‌شود
-      const items = await this.findCartItem(id);
-      const prices = await this.getPrices(id);
+      // ✅ بررسی اینکه آیا قبلاً به کاربر اطلاع داده شده است یا نه
+      const isFirstTimeExpired = !cart.expiredNotifiedAt;
 
-      return {
-        cart: cart,
-        items: items || [],
-        itemCount: items?.length || 0,
-        totalItems: items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
-        totalPrice: prices.totalWithDiscount || 0,
-        expiresAt: cart.expiresAt,
-        remainingSeconds: 0, // ✅ منقضی شده
-        expired: true, // ✅ نشان می‌دهد که cart منقضی شده
-        prices: prices,
-      };
+      if (isFirstTimeExpired) {
+        // ✅ اولین بار که expired است - items را برگردان و flag را set کن
+        cart.expiredNotifiedAt = now;
+        await cart.save();
+
+        const items = await this.findCartItem(id);
+        const prices = await this.getPrices(id);
+
+        return {
+          cart: cart,
+          items: items || [],
+          itemCount: items?.length || 0,
+          totalItems: items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+          totalPrice: prices.totalWithDiscount || 0,
+          expiresAt: cart.expiresAt,
+          remainingSeconds: 0,
+          expired: true,
+          prices: prices,
+        };
+      } else {
+        // ✅ دفعات بعد - items را پاک کن و خالی برگردان
+        const items = await this.findCartItem(id);
+        
+        // اگر items وجود دارد، آن‌ها را حذف کن
+        if (items && items.length > 0) {
+          for (const item of items) {
+            await this.deleteCartItem((item._id as Types.ObjectId).toString());
+          }
+        }
+
+        return {
+          cart: cart,
+          items: [],
+          itemCount: 0,
+          totalItems: 0,
+          totalPrice: 0,
+          expiresAt: cart.expiresAt,
+          remainingSeconds: 0,
+          expired: true,
+          prices: {
+            totalWithoutDiscount: 0,
+            totalWithDiscount: 0,
+            totalSavings: 0,
+            savingsPercentage: 0,
+          },
+        };
+      }
     }
 
     // ❌ به‌روزرسانی زمان فعالیت را حذف کردیم
