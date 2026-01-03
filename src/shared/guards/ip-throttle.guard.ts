@@ -7,6 +7,7 @@ import {
   CanActivate,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { ErrorCode } from '../constants/error-codes';
 
 /**
  * Enhanced Throttle Guard with IP-based and User-based rate limiting
@@ -70,7 +71,7 @@ export class IpThrottleGuard implements CanActivate {
         {
           message:
             'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید',
-          code: 'RATE_LIMIT_EXCEEDED',
+          code: ErrorCode.RATE_LIMIT_EXCEEDED, // ✅ استفاده از ErrorCode enum
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );

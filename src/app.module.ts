@@ -23,6 +23,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LogInterceptor } from './shared/interceptors/log.interceptor';
 import { TimeMiddleware } from './shared/middleware/time.middleware';
 import { CsrfMiddleware } from './shared/middleware/csrf.middleware';
+import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
 import { UserModule } from './user/user.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -129,6 +130,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*'); // Apply Request ID to all routes
     consumer.apply(TimeMiddleware).forRoutes('*');
     consumer.apply(CsrfMiddleware).forRoutes('*'); // Apply CSRF token generation to all routes
   }

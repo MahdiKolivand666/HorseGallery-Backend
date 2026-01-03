@@ -1,10 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IdPipe } from './shared/pipes/id.pipe';
 import { DuplicateFilter } from './shared/filters/duplicate.filter';
+import { ErrorCode } from './shared/constants/error-codes';
 import helmet from 'helmet';
 import * as express from 'express';
 import cookieParser from 'cookie-parser';
@@ -89,6 +90,7 @@ async function bootstrap() {
   // ============================================================================
 
   // Global validation pipe for request validation with security enhancements
+  // ✅ بهبود: اضافه کردن error code به validation errors برای هماهنگی با frontend
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -99,6 +101,24 @@ async function bootstrap() {
         enableImplicitConversion: true,
       },
       disableErrorMessages: isProduction, // Hide detailed validation errors in production
+      exceptionFactory: (validationErrors = []) => {
+        // ✅ Format کردن validation errors
+        const formattedErrors: Record<string, string[]> = {};
+        validationErrors.forEach((error) => {
+          formattedErrors[error.property] = Object.values(
+            error.constraints || {},
+          );
+        });
+
+        // ✅ ایجاد exception با error code برای هماهنگی با frontend
+        return new BadRequestException({
+          message: isProduction
+            ? 'خطاهای اعتبارسنجی'
+            : 'خطاهای اعتبارسنجی',
+          code: ErrorCode.VALIDATION_ERROR,
+          errors: formattedErrors,
+        });
+      },
     }),
   );
 
