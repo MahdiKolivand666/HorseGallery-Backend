@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Cart } from '../schemas/cart.schema';
 import { CartItem } from '../schemas/cart-item.schema';
+import { CART_EXPIRATION_MINUTES } from '../constants/cart.constants';
 
 @Injectable()
 export class CartCleanupService {
@@ -30,7 +31,7 @@ export class CartCleanupService {
   /**
    * به‌روزرسانی lastActivityAt و expiresAt سبد خرید
    * این متد فقط وقتی فعالیت واقعی انجام می‌شود فراخوانی می‌شود (افزودن/ویرایش/حذف محصول)
-   * در این حالت timer باید reset شود (10 دقیقه جدید)
+   * در این حالت timer باید reset شود (CART_EXPIRATION_MINUTES دقیقه جدید)
    *
    * ⚠️ توجه: این متد در getCartDetails فراخوانی نمی‌شود تا timer از همان زمان باقیمانده ادامه دهد
    */
@@ -39,10 +40,10 @@ export class CartCleanupService {
       const cart = await this.cartModel.findById(cartId).exec();
 
       if (cart) {
-        // وقتی فعالیت واقعی انجام می‌شود، timer را reset کن (10 دقیقه جدید)
+        // وقتی فعالیت واقعی انجام می‌شود، timer را reset کن (CART_EXPIRATION_MINUTES دقیقه جدید)
         cart.lastActivityAt = new Date();
         const expirationTime = new Date();
-        expirationTime.setMinutes(expirationTime.getMinutes() + 10);
+        expirationTime.setMinutes(expirationTime.getMinutes() + CART_EXPIRATION_MINUTES);
         cart.expiresAt = expirationTime;
         // ✅ Reset expiredNotifiedAt چون cart دوباره فعال شده است
         cart.expiredNotifiedAt = undefined;

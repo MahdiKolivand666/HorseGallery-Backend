@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { User } from 'src/user/schemas/user.schema';
+import { CART_EXPIRATION_MINUTES } from '../constants/cart.constants';
 
 @Schema({
   timestamps: true,
@@ -43,7 +44,7 @@ export class GoldPurchase extends Document {
   lastActivityAt: Date; // آخرین زمان فعالیت
 
   @Prop({ type: Date })
-  expiresAt: Date; // زمان انقضا (10 دقیقه بعد از lastActivityAt)
+  expiresAt: Date; // زمان انقضا (CART_EXPIRATION_MINUTES دقیقه بعد از lastActivityAt)
 }
 
 export const GoldPurchaseSchema = SchemaFactory.createForClass(GoldPurchase);
@@ -56,10 +57,10 @@ GoldPurchaseSchema.pre('save', function (next) {
     );
   }
 
-  // تنظیم expiresAt: 10 دقیقه بعد از lastActivityAt
+  // تنظیم expiresAt: CART_EXPIRATION_MINUTES دقیقه بعد از lastActivityAt
   if (!this.expiresAt || this.isModified('lastActivityAt')) {
     const expirationTime = new Date(this.lastActivityAt || Date.now());
-    expirationTime.setMinutes(expirationTime.getMinutes() + 10);
+    expirationTime.setMinutes(expirationTime.getMinutes() + CART_EXPIRATION_MINUTES);
     this.expiresAt = expirationTime;
   }
 

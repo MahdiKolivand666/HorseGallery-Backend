@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { User } from 'src/user/schemas/user.schema';
+import { CART_EXPIRATION_MINUTES } from '../constants/cart.constants';
 
 @Schema({
   timestamps: true,
@@ -26,7 +27,7 @@ export class Cart extends Document {
   lastActivityAt: Date; // آخرین زمان فعالیت در سبد خرید
 
   @Prop({ type: Date })
-  expiresAt: Date; // زمان انقضای سبد خرید (10 دقیقه بعد از lastActivityAt)
+  expiresAt: Date; // زمان انقضای سبد خرید (CART_EXPIRATION_MINUTES دقیقه بعد از lastActivityAt)
 
   @Prop({ type: Date })
   expiredNotifiedAt?: Date; // زمان اولین اطلاع‌رسانی expired به کاربر (برای پاک کردن items بعد از اولین نمایش)
@@ -46,7 +47,9 @@ cartSchema.pre('save', function (next) {
   if (!this.expiresAt) {
     // فقط اگر expiresAt وجود ندارد، timer جدید شروع کن
     const expirationTime = new Date(this.lastActivityAt || Date.now());
-    expirationTime.setMinutes(expirationTime.getMinutes() + 10);
+    expirationTime.setMinutes(
+      expirationTime.getMinutes() + CART_EXPIRATION_MINUTES,
+    );
     this.expiresAt = expirationTime;
   }
   // اگر expiresAt از قبل تنظیم شده، آن را تغییر نده

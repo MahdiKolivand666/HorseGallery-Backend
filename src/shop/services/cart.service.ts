@@ -21,6 +21,7 @@ import { DeleteCartItemDto } from '../dtos/delete-cat-item.dto';
 import { ProductService } from 'src/product/services/product.service';
 import { CartCleanupService } from './cart-cleanup.service';
 import { User, RegistrationStatus } from 'src/user/schemas/user.schema';
+import { CART_EXPIRATION_SECONDS } from '../constants/cart.constants';
 
 @Injectable()
 export class CartService {
@@ -296,6 +297,7 @@ export class CartService {
         totalPrice: 0,
         expiresAt: null,
         remainingSeconds: 0,
+        expirationSeconds: CART_EXPIRATION_SECONDS, // ✅ زمان انقضا به ثانیه (برای frontend counter)
         expired: false, // ✅ سبد وجود ندارد (نه منقضی شده)
         prices: {
           totalWithoutDiscount: 0,
@@ -399,29 +401,41 @@ export class CartService {
       const isFirstTimeExpired = !cart.expiredNotifiedAt;
 
       if (isFirstTimeExpired) {
-        // ✅ اولین بار که expired است - items را برگردان و flag را set کن
+        // ✅ اولین بار که expired است - items را پاک کن و flag را set کن
+        const items = await this.findCartItem(id);
+        // پاک کردن همه items
+        if (items && items.length > 0) {
+          for (const item of items) {
+            await this.deleteCartItem((item._id as Types.ObjectId).toString());
+          }
+        }
+
+        // Set flag برای نشان دادن اینکه کاربر اطلاع داده شده است
         cart.expiredNotifiedAt = now;
         await cart.save();
 
-        const items = await this.findCartItem(id);
-        const prices = await this.getPrices(id);
-
         return {
           cart: cart,
-          items: items || [],
-          itemCount: items?.length || 0,
-          totalItems: items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
-          totalPrice: prices.totalWithDiscount || 0,
+          items: [], // ✅ items پاک شده‌اند
+          itemCount: 0,
+          totalItems: 0,
+          totalPrice: 0,
           expiresAt: cart.expiresAt,
           remainingSeconds: 0,
+          expirationSeconds: CART_EXPIRATION_SECONDS,
           expired: true,
-          prices: prices,
+          expiredFirstTime: true, // ✅ flag برای frontend - نشان می‌دهد این اولین بار است
+          prices: {
+            totalWithoutDiscount: 0,
+            totalWithDiscount: 0,
+            totalSavings: 0,
+            savingsPercentage: 0,
+          },
         };
       } else {
-        // ✅ دفعات بعد - items را پاک کن و خالی برگردان
+        // ✅ دفعات بعد - items قبلاً پاک شده‌اند، فقط خالی برگردان
         const items = await this.findCartItem(id);
-        
-        // اگر items وجود دارد، آن‌ها را حذف کن
+        // اگر هنوز items وجود دارد (برای اطمینان)، آن‌ها را حذف کن
         if (items && items.length > 0) {
           for (const item of items) {
             await this.deleteCartItem((item._id as Types.ObjectId).toString());
@@ -436,7 +450,9 @@ export class CartService {
           totalPrice: 0,
           expiresAt: cart.expiresAt,
           remainingSeconds: 0,
+          expirationSeconds: CART_EXPIRATION_SECONDS,
           expired: true,
+          expiredFirstTime: false, // ✅ flag برای frontend - نشان می‌دهد دفعات بعدی است
           prices: {
             totalWithoutDiscount: 0,
             totalWithDiscount: 0,
@@ -472,6 +488,40 @@ export class CartService {
         0,
         Math.floor((expiresAt.getTime() - now.getTime()) / 1000),
       );
+
+      // ✅ اگر counter به 0 رسید، cart را expired کن و items را پاک کن
+      if (remainingSeconds === 0 && !cart.expiredNotifiedAt) {
+        const itemsToDelete = await this.findCartItem(id);
+        // پاک کردن همه items
+        if (itemsToDelete && itemsToDelete.length > 0) {
+          for (const item of itemsToDelete) {
+            await this.deleteCartItem((item._id as Types.ObjectId).toString());
+          }
+        }
+
+        // Set flag برای نشان دادن اینکه کاربر اطلاع داده شده است
+        cart.expiredNotifiedAt = now;
+        await cart.save();
+
+        return {
+          cart,
+          items: [], // ✅ items پاک شده‌اند
+          itemCount: 0,
+          totalItems: 0,
+          totalPrice: 0,
+          expiresAt: cart.expiresAt,
+          remainingSeconds: 0,
+          expirationSeconds: CART_EXPIRATION_SECONDS,
+          expired: true,
+          expiredFirstTime: true, // ✅ flag برای frontend
+          prices: {
+            totalWithoutDiscount: 0,
+            totalWithDiscount: 0,
+            totalSavings: 0,
+            savingsPercentage: 0,
+          },
+        };
+      }
 
       // ✅ اضافه کردن discount و originalPrice به هر item
       const itemsWithDiscount = items.map((item) => {
@@ -537,6 +587,7 @@ export class CartService {
         totalPrice: prices.totalWithDiscount, // قیمت کل
         expiresAt: cart.expiresAt, // زمان انقضا
         remainingSeconds, // زمان باقی‌مانده تا انقضا (ثانیه)
+        expirationSeconds: CART_EXPIRATION_SECONDS, // ✅ زمان انقضا به ثانیه (برای frontend counter)
         expired: false, // ✅ نشان می‌دهد که cart منقضی نشده
         prices,
       };
