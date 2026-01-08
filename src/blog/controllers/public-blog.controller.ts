@@ -12,7 +12,10 @@ export class PublicBlogController {
 
   @Get()
   @ApiOperation({ summary: 'Get public blog posts list' })
-  @ApiResponse({ status: 200, description: 'Blog posts retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Blog posts retrieved successfully',
+  })
   async findAll(@Query() queryParams: PublicBlogQueryDto) {
     return this.blogService.findPublicBlogs(queryParams);
   }
@@ -62,4 +65,3 @@ export class PublicBlogController {
     };
   }
 }
-

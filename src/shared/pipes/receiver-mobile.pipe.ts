@@ -11,7 +11,7 @@ export class ReceiverMobilePipe implements PipeTransform {
   transform(value: any, metadata: ArgumentMetadata) {
     // Support both old (receiverMobile) and new (recipientMobile) field names
     const mobileField = value?.recipientMobile || value?.receiverMobile;
-    
+
     if (mobileField) {
       // Convert Persian/Farsi numbers to English
       const englishMobile = convertNumbers(mobileField);
@@ -57,8 +57,8 @@ export class ReceiverMobilePipe implements PipeTransform {
       }
 
       // Set both field names for backward compatibility
-      return { 
-        ...value, 
+      return {
+        ...value,
         recipientMobile: cleanMobile,
         receiverMobile: cleanMobile, // Legacy support
       };

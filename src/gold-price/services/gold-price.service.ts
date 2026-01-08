@@ -25,10 +25,7 @@ export class GoldPriceService {
     if (karat) {
       query.karat = karat;
     }
-    return this.goldPriceModel
-      .findOne(query)
-      .sort({ date: -1 })
-      .exec();
+    return this.goldPriceModel.findOne(query).sort({ date: -1 }).exec();
   }
 
   async findOne(id: string) {
@@ -62,4 +59,3 @@ export class GoldPriceService {
     return goldPrice;
   }
 }
-

@@ -94,4 +94,3 @@ export class UpdateAnnouncementDto {
   @IsOptional()
   order?: number;
 }
-

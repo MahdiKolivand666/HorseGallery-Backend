@@ -55,10 +55,7 @@ export class ProductMigrationService {
 
     // 4. Convert weight, karat, material to string if they exist as numbers
     const products = await this.productModel.find({
-      $or: [
-        { weight: { $type: 'number' } },
-        { karat: { $type: 'number' } },
-      ],
+      $or: [{ weight: { $type: 'number' } }, { karat: { $type: 'number' } }],
     });
 
     for (const product of products) {
@@ -70,12 +67,17 @@ export class ProductMigrationService {
         update.karat = `${product.karat} عیار`;
       }
       if (update.weight || update.karat) {
-        await this.productModel.updateOne({ _id: product._id }, { $set: update });
+        await this.productModel.updateOne(
+          { _id: product._id },
+          { $set: update },
+        );
       }
     }
 
     // 5. Generate codes for existing products
-    const productsWithoutCode = await this.productModel.find({ code: { $exists: false } });
+    const productsWithoutCode = await this.productModel.find({
+      code: { $exists: false },
+    });
     for (const product of productsWithoutCode) {
       const code = this.generateProductCode(product);
       await this.productModel.updateOne(
@@ -177,7 +179,10 @@ export class ProductMigrationService {
       await this.migrateBlogs();
       await this.migrateAddresses();
       console.log('🎉 All migrations completed successfully!');
-      return { success: true, message: 'All migrations completed successfully!' };
+      return {
+        success: true,
+        message: 'All migrations completed successfully!',
+      };
     } catch (error) {
       console.error('❌ Migration failed:', error);
       throw error;
@@ -195,4 +200,3 @@ export class ProductMigrationService {
     return 'PRD';
   }
 }
-

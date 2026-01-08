@@ -116,10 +116,15 @@ export class ProductCategoryService {
   }
 
   async update(id: string, body: UpdateProductCategoryDto) {
-    const productCategory = await this.findOne(id, { _id: 1, heroImage: 1, image: 1 });
+    const productCategory = await this.findOne(id, {
+      _id: 1,
+      heroImage: 1,
+      image: 1,
+    });
 
     // Support both old (image) and new (heroImage) field names
-    const imageToDelete = (productCategory as any).heroImage || (productCategory as any).image;
+    const imageToDelete =
+      (productCategory as any).heroImage || (productCategory as any).image;
     if (body?.image || body?.heroImage) {
       if (imageToDelete) {
         await deleteImages(imageToDelete, 'productCategory');
@@ -135,7 +140,8 @@ export class ProductCategoryService {
     const productCategory = await this.findOne(id);
 
     // Support both old (image) and new (heroImage) field names
-    const imageToDelete = (productCategory as any).heroImage || (productCategory as any).image;
+    const imageToDelete =
+      (productCategory as any).heroImage || (productCategory as any).image;
     if (imageToDelete) {
       await deleteImages(imageToDelete, 'productCategory');
     }

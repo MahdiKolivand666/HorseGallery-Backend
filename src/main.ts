@@ -112,9 +112,7 @@ async function bootstrap() {
 
         // ✅ ایجاد exception با error code برای هماهنگی با frontend
         return new BadRequestException({
-          message: isProduction
-            ? 'خطاهای اعتبارسنجی'
-            : 'خطاهای اعتبارسنجی',
+          message: isProduction ? 'خطاهای اعتبارسنجی' : 'خطاهای اعتبارسنجی',
           code: ErrorCode.VALIDATION_ERROR,
           errors: formattedErrors,
         });

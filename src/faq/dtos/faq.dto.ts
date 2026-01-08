@@ -52,4 +52,3 @@ export class UpdateFAQDto {
   @IsOptional()
   isActive?: boolean;
 }
-

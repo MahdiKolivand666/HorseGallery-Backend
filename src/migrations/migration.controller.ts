@@ -18,4 +18,3 @@ export class MigrationController {
     return await this.migrationService.runAllMigrations();
   }
 }
-

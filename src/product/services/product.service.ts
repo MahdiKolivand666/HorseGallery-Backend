@@ -800,10 +800,8 @@ export class ProductService {
     }
 
     // Formula: (salesCount * 5) + (viewsCount * 1) + (rating * 10)
-    const salesCount =
-      (product as any).salesCount || (product as any).sales || 0;
-    const viewsCount =
-      (product as any).viewsCount || (product as any).views || 0;
+    const salesCount = product.salesCount || product.sales || 0;
+    const viewsCount = product.viewsCount || product.views || 0;
     const rating = product.rating || 0;
 
     const popularityScore = salesCount * 5 + viewsCount * 1 + rating * 10;

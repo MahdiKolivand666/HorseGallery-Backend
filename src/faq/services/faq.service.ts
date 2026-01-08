@@ -56,4 +56,3 @@ export class FAQService {
     return this.faqModel.findByIdAndUpdate(id, { $inc: { helpful: 1 } }).exec();
   }
 }
-

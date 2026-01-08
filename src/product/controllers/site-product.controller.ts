@@ -54,11 +54,11 @@ export class SiteProductController {
 
     // Get current product type to filter related products
     // ⚠️ مهم: فقط محصولات با همان productType نمایش داده می‌شوند
-    const currentProductType = (product as any).productType || 'jewelry';
+    const currentProductType = product.productType || 'jewelry';
 
     const relatedProducts = await this.productService.findAll(
       {
-        category: (product.category as any)._id.toString(),
+        category: product.category._id.toString(),
         exclude: [(product._id as string).toString()],
         productType: currentProductType, // فیلتر بر اساس نوع محصول - اجباری!
       },

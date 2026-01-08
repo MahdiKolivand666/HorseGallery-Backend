@@ -24,4 +24,3 @@ export const GoldPriceSchema = SchemaFactory.createForClass(GoldPrice);
 // Indexes
 GoldPriceSchema.index({ karat: 1, date: -1 });
 GoldPriceSchema.index({ isActive: 1 });
-

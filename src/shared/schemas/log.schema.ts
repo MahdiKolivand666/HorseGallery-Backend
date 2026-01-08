@@ -14,13 +14,13 @@ export enum LogType {
 export class Log extends Document {
   @Prop()
   content: string;
-  
+
   @Prop()
   url: string;
-  
+
   @Prop()
   type: LogType;
-  
+
   @Prop({
     type: Types.ObjectId,
     ref: User.name,

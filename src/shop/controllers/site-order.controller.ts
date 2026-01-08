@@ -51,7 +51,33 @@ export class SiteOrderController {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4000';
 
-    if (query.authority) {
+    // ✅ Check Status first - only verify if Status=OK
+    // According to Zarinpal docs: Status can be "OK" or "NOK"
+    if (query.status !== 'OK') {
+      // Status is NOK or missing - payment failed or canceled
+      if (query.authority) {
+        try {
+          const order = await this.orderService.findOrderByRefId(
+            query.authority,
+          );
+          order.status = OrderStatus.Canceled;
+          await order.save();
+          const orderId = (order._id as Types.ObjectId).toString();
+          return response.redirect(`${frontendUrl}/order/failed?id=${orderId}`);
+        } catch (error) {
+          // Order not found, just redirect to failed page
+          return response.redirect(`${frontendUrl}/order/failed`);
+        }
+      }
+      return response.redirect(`${frontendUrl}/order/failed`);
+    }
+
+    // ✅ Status is OK - proceed with verification
+    if (!query.authority) {
+      return response.redirect(`${frontendUrl}/order/failed`);
+    }
+
+    try {
       const order = await this.orderService.findOrderByRefId(query.authority);
 
       const bankResponse = await this.orderService.checkOrder(
@@ -60,8 +86,15 @@ export class SiteOrderController {
 
       const orderId = (order._id as Types.ObjectId).toString();
 
-      if (bankResponse.status === 101) {
+      // ✅ According to Zarinpal docs:
+      // code 100 = Payment successful (first time verify)
+      // code 101 = Payment successful (already verified before)
+      if (bankResponse.code === 100 || bankResponse.code === 101) {
         order.status = OrderStatus.Paid;
+        // Store transaction ID (ref_id) if available
+        if (bankResponse.ref_id) {
+          order.transactionId = bankResponse.ref_id.toString();
+        }
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         await this.cartService.removeCartAndItems(order.cart.toString());
         await order.save();
@@ -85,11 +118,13 @@ export class SiteOrderController {
 
         return response.redirect(`${frontendUrl}/order/success?id=${orderId}`);
       } else {
+        // Payment verification failed
         order.status = OrderStatus.Canceled;
         await order.save();
         return response.redirect(`${frontendUrl}/order/failed?id=${orderId}`);
       }
-    } else {
+    } catch (error) {
+      // Error during verification
       return response.redirect(`${frontendUrl}/order/failed`);
     }
   }

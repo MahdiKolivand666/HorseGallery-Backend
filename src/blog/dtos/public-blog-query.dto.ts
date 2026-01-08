@@ -21,4 +21,3 @@ export class PublicBlogQueryDto {
   @IsString()
   category?: string; // category slug or id
 }
-

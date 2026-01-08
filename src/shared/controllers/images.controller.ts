@@ -8,7 +8,10 @@ import { Public } from '../decorators/public.decorator';
 @Public()
 export class ImagesController {
   @Get('products/:filename')
-  async serveProductImage(@Param('filename') filename: string, @Res() res: Response) {
+  async serveProductImage(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
     const path = `products/${filename}`;
     return this.serveImage(path, res);
   }
@@ -31,11 +34,28 @@ export class ImagesController {
       // Try /files/products/product13.webp (symlink path)
       join(process.cwd(), 'files', 'products', filename),
       // Try /files/product/main/product13.webp
-      join(process.cwd(), 'files', folder === 'products' ? 'product' : folder, 'main', filename),
+      join(
+        process.cwd(),
+        'files',
+        folder === 'products' ? 'product' : folder,
+        'main',
+        filename,
+      ),
       // Try /files/product/resized/product13.webp
-      join(process.cwd(), 'files', folder === 'products' ? 'product' : folder, 'resized', filename),
+      join(
+        process.cwd(),
+        'files',
+        folder === 'products' ? 'product' : folder,
+        'resized',
+        filename,
+      ),
       // Try /files/product/product13.webp
-      join(process.cwd(), 'files', folder === 'products' ? 'product' : folder, filename),
+      join(
+        process.cwd(),
+        'files',
+        folder === 'products' ? 'product' : folder,
+        filename,
+      ),
       // Also try direct path mapping
       join(process.cwd(), 'files', ...pathParts),
     ];
@@ -77,7 +97,8 @@ export class ImagesController {
     }
 
     // If not found, return 404
-    return res.status(404).json({ message: 'Image not found', folder, filename });
+    return res
+      .status(404)
+      .json({ message: 'Image not found', folder, filename });
   }
 }
-

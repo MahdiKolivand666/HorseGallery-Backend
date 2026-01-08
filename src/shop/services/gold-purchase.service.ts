@@ -9,7 +9,10 @@ import { Model, Types } from 'mongoose';
 import { GoldPurchase } from '../schemas/gold-purchase.schema';
 import { GoldInvestmentService } from './gold-investment.service';
 import { AddGoldToCartDto } from '../dtos/add-gold-to-cart.dto';
-import { CART_EXPIRATION_MINUTES, CART_EXPIRATION_MS } from '../constants/cart.constants';
+import {
+  CART_EXPIRATION_MINUTES,
+  CART_EXPIRATION_MS,
+} from '../constants/cart.constants';
 
 @Injectable()
 export class GoldPurchaseService {
@@ -46,7 +49,9 @@ export class GoldPurchaseService {
 
       // به‌روزرسانی expiresAt
       const expirationTime = new Date();
-      expirationTime.setMinutes(expirationTime.getMinutes() + CART_EXPIRATION_MINUTES);
+      expirationTime.setMinutes(
+        expirationTime.getMinutes() + CART_EXPIRATION_MINUTES,
+      );
       existingPurchase.expiresAt = expirationTime;
 
       await existingPurchase.save();

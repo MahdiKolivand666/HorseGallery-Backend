@@ -26,7 +26,7 @@ export class PublicProductController {
       if (typeof param === 'string') {
         // Handle comma-separated values
         if (param.includes(',')) {
-          return param.split(',').map(s => s.trim());
+          return param.split(',').map((s) => s.trim());
         }
         return [param];
       }
@@ -79,7 +79,7 @@ export class PublicProductController {
     };
 
     // Remove undefined values
-    Object.keys(dto).forEach(key => {
+    Object.keys(dto).forEach((key) => {
       if (dto[key] === undefined) {
         delete dto[key];
       }
@@ -93,8 +93,15 @@ export class PublicProductController {
   @ApiQuery({ name: 'q', required: true, description: 'Search query' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'price-asc', 'price-desc', 'popular'] })
-  @ApiResponse({ status: 200, description: 'Search results retrieved successfully' })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['newest', 'oldest', 'price-asc', 'price-desc', 'popular'],
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Search results retrieved successfully',
+  })
   @ApiResponse({ status: 400, description: 'Query parameter is required' })
   async search(@Query() queryParams: SearchProductQueryDto) {
     const { q, page = 1, limit = 20, sort = 'newest' } = queryParams;
@@ -118,29 +125,28 @@ export class PublicProductController {
     // Get related products from same category
     const categoryId =
       typeof product.category === 'object' && product.category !== null
-        ? (product.category as any)._id?.toString() ||
-          (product.category as any).toString()
+        ? product.category._id?.toString() || product.category.toString()
         : typeof product.category === 'string'
           ? product.category
           : undefined;
 
     const productId =
       typeof product._id === 'object' && product._id !== null
-        ? (product._id as any).toString()
+        ? product._id.toString()
         : typeof product._id === 'string'
           ? product._id
           : undefined;
 
     // Get current product type to filter related products
     // ⚠️ مهم: فقط محصولات با همان productType نمایش داده می‌شوند
-    const currentProductType = (product as any).productType || 'jewelry';
+    const currentProductType = product.productType || 'jewelry';
 
     // Get related products from same category AND same productType (up to 8 products)
     // ⚠️ فیلتر productType تضمین می‌کند که:
     // - در صفحه جزئیات سکه، فقط سکه‌های مرتبط نمایش داده می‌شوند
     // - در صفحه جزئیات شمش، فقط شمش‌های مرتبط نمایش داده می‌شوند
     // - در صفحه جزئیات جواهرات، فقط جواهرات مرتبط نمایش داده می‌شوند
-    let relatedProducts = await this.productService.findAll(
+    const relatedProducts = await this.productService.findAll(
       {
         category: categoryId,
         exclude: productId ? [productId] : [],
@@ -194,13 +200,16 @@ export class PublicProductController {
           return id;
         }),
       );
-      
+
       const newProducts = additionalProducts.products.filter((p: any) => {
         const id = typeof p._id === 'object' ? p._id.toString() : p._id;
         return id && !existingIds.has(id);
       });
-      
-      relatedProducts.products = [...relatedProducts.products, ...newProducts].slice(0, 8);
+
+      relatedProducts.products = [
+        ...relatedProducts.products,
+        ...newProducts,
+      ].slice(0, 8);
     }
 
     // Ensure at least one related product (if there are other products in database)
@@ -253,11 +262,9 @@ export class PublicProductCategoryController {
     status: 200,
     description: 'Categories retrieved successfully',
   })
-  async findAll(
-    @Query('includeSubcategories') includeSubcategories?: string,
-  ) {
-    const include = includeSubcategories === 'true' || includeSubcategories === undefined;
+  async findAll(@Query('includeSubcategories') includeSubcategories?: string) {
+    const include =
+      includeSubcategories === 'true' || includeSubcategories === undefined;
     return this.productCategoryService.findPublicCategories(include);
   }
 }
-

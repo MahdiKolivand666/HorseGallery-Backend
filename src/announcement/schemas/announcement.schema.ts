@@ -41,4 +41,3 @@ export const AnnouncementSchema = SchemaFactory.createForClass(Announcement);
 // Indexes
 AnnouncementSchema.index({ isActive: 1, startDate: -1 });
 AnnouncementSchema.index({ order: 1 });
-

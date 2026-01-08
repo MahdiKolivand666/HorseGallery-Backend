@@ -31,4 +31,3 @@ export const FAQSchema = SchemaFactory.createForClass(FAQ);
 FAQSchema.index({ order: 1 });
 FAQSchema.index({ isActive: 1 });
 FAQSchema.index({ category: 1 });
-

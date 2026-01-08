@@ -21,4 +21,3 @@ export const TokenBlacklistSchema =
 
 // ✅ Index برای پاک کردن خودکار token های expire شده
 TokenBlacklistSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-

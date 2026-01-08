@@ -18,6 +18,7 @@ import { EditedBy } from 'src/product/schemas/inventory-record.schema';
 import { OrderQueryDto } from '../dtos/order-query.dto';
 import { sortFunction } from 'src/shared/utils/sort-utils';
 import { calculateItemTotal } from 'src/shared/utils/price-calculator';
+import { User } from 'src/user/schemas/user.schema';
 
 @Injectable()
 export class OrderService {
@@ -27,6 +28,7 @@ export class OrderService {
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @InjectModel(OrderItem.name)
     private readonly orderItemModel: Model<OrderItem>,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly cartService: CartService,
     private readonly shippingService: ShippingService,
     private readonly productService: ProductService,
@@ -72,7 +74,7 @@ export class OrderService {
         const paymentUrl =
           isDevelopment && isTestMerchant
             ? null
-            : `https://www.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
+            : `https://payment.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
         return {
           success: true,
           refId: existingOrder.refId,
@@ -101,7 +103,7 @@ export class OrderService {
         const paymentUrl =
           isDevelopment && isTestMerchant
             ? null
-            : `https://www.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
+            : `https://payment.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
         return {
           success: true,
           refId: existingOrder.refId,
@@ -113,7 +115,17 @@ export class OrderService {
       }
     }
 
-    const cart = await this.cartService.getCartDetails(cartId);
+    const cart = await this.cartService.getCartDetails(cartId, user);
+
+    // ✅ Validation: بررسی معتبر بودن shippingId
+    const isValidShipping =
+      await this.shippingService.validateShippingId(shippingId);
+    if (!isValidShipping) {
+      throw new BadRequestException(
+        'روش ارسال انتخاب شده معتبر نیست یا فعال نمی‌باشد',
+      );
+    }
+
     const shipping = await this.shippingService.findOne(shippingId);
 
     // ✅ بررسی انقضای cart قبل از ایجاد order
@@ -163,7 +175,18 @@ export class OrderService {
       lastPaymentAttemptAt: new Date(),
     });
 
-    const bankResponse = await this.createPaymentRequest(order.finalPrice);
+    // Get user info for metadata
+    const userInfo = await this.userModel
+      .findById(user)
+      .select('mobile email')
+      .lean();
+
+    const bankResponse = await this.createPaymentRequest(
+      order.finalPrice,
+      order.orderId,
+      userInfo?.mobile,
+      userInfo?.email,
+    );
     if (bankResponse.code === 100) {
       order.refId = bankResponse.authority;
 
@@ -211,7 +234,7 @@ export class OrderService {
       const paymentUrl =
         isDevelopment && isTestMerchant
           ? null
-          : `https://www.zarinpal.com/pg/StartPay/${order.refId}`;
+          : `https://payment.zarinpal.com/pg/StartPay/${order.refId}`;
 
       return {
         success: true,
@@ -248,12 +271,24 @@ export class OrderService {
     try {
       const order = await this.findOneOrder(id);
       const merchantId = this.configService.get<string>('MERCHANT_ID');
-      const bankVerifyUrl = this.configService.get<string>('BANK_VERIFY_URL');
+      const nodeEnv =
+        this.configService.get<string>('NODE_ENV') || 'development';
 
-      if (!bankVerifyUrl) {
-        this.logger.error('Bank verify URL is not configured');
-        throw new BadRequestException('آدرس درگاه بانکی تنظیم نشده است');
-      }
+      const isDevelopment = nodeEnv !== 'production';
+      const isTestMerchant =
+        !merchantId ||
+        merchantId === 'your-merchant-id-here' ||
+        merchantId.includes('test') ||
+        merchantId.includes('sandbox');
+
+      // Determine verify URL based on environment
+      // Sandbox: https://sandbox.zarinpal.com/pg/v4/payment/verify.json
+      // Production: https://payment.zarinpal.com/pg/v4/payment/verify.json
+      const baseUrl =
+        isDevelopment && isTestMerchant
+          ? 'https://sandbox.zarinpal.com'
+          : 'https://payment.zarinpal.com';
+      const bankVerifyUrl = `${baseUrl}/pg/v4/payment/verify.json`;
 
       if (!merchantId) {
         this.logger.error('Merchant ID is not configured');
@@ -262,7 +297,7 @@ export class OrderService {
 
       const bankData = {
         merchant_id: merchantId,
-        amount: order.finalPrice * 10,
+        amount: order.finalPrice * 10, // Convert Toman to Rials
         authority: order.refId,
       };
 
@@ -274,6 +309,7 @@ export class OrderService {
         timeout: 10000, // 10 second timeout
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
       });
 
@@ -328,28 +364,37 @@ export class OrderService {
     }
   }
 
-  async createPaymentRequest(finalPrice: number) {
+  async createPaymentRequest(
+    finalPrice: number,
+    orderId?: string,
+    mobile?: string,
+    email?: string,
+  ) {
     try {
       const merchantId = this.configService.get<string>('MERCHANT_ID');
       const serverUrl = this.configService.get<string>('SERVER_URL');
-      const bankUrl = this.configService.get<string>('BANK_URL');
       const nodeEnv =
         this.configService.get<string>('NODE_ENV') || 'development';
 
       // Development mode: Check if we should use mock payment
       const isDevelopment = nodeEnv !== 'production';
+      const useRealPayment =
+        this.configService.get<string>('USE_REAL_PAYMENT') === 'true';
       const isTestMerchant =
         !merchantId ||
         merchantId === 'your-merchant-id-here' ||
         merchantId.includes('test') ||
         merchantId.includes('sandbox');
 
-      if (isDevelopment && isTestMerchant) {
+      // ✅ در development mode:
+      // - اگر USE_REAL_PAYMENT=true باشد، به درگاه واقعی متصل می‌شود
+      // - اگر USE_REAL_PAYMENT=true نباشد یا merchant_id test باشد، از mock استفاده می‌کند
+      if (isDevelopment && !useRealPayment) {
         this.logger.warn(
           `⚠️ Development Mode: Using mock payment gateway (amount: ${finalPrice} Toman)`,
         );
         this.logger.warn(
-          `⚠️ MERCHANT_ID is not configured or is a test value. In production, use real Zarinpal merchant ID.`,
+          `⚠️ برای تست اتصال به درگاه واقعی، USE_REAL_PAYMENT=true را در .env تنظیم کنید`,
         );
 
         // Generate a mock authority code
@@ -361,9 +406,17 @@ export class OrderService {
         };
       }
 
+      // ✅ اگر USE_REAL_PAYMENT=true باشد یا در production باشیم، merchant_id باید وجود داشته باشد
       if (!merchantId) {
         this.logger.error('Merchant ID is not configured');
         throw new BadRequestException('شناسه پذیرنده تنظیم نشده است');
+      }
+
+      // ✅ در development با USE_REAL_PAYMENT=true، اگر merchant_id test باشد، هشدار بده
+      if (isDevelopment && useRealPayment && isTestMerchant) {
+        this.logger.warn(
+          `⚠️ Development Mode with USE_REAL_PAYMENT=true: MERCHANT_ID appears to be a test value. Make sure you're using a valid Zarinpal merchant ID.`,
+        );
       }
 
       if (!serverUrl) {
@@ -371,17 +424,54 @@ export class OrderService {
         throw new BadRequestException('آدرس سرور تنظیم نشده است');
       }
 
-      if (!bankUrl) {
-        this.logger.error('Bank URL is not configured');
-        throw new BadRequestException('آدرس درگاه بانکی تنظیم نشده است');
+      // ✅ بررسی حداقل مبلغ (حداقل 1000 تومان = 10000 ریال)
+      const minAmount = 1000; // حداقل 1000 تومان
+      if (finalPrice < minAmount) {
+        throw new BadRequestException(
+          `مبلغ سفارش باید حداقل ${minAmount.toLocaleString('fa-IR')} تومان باشد`,
+        );
       }
 
-      const bankData = {
+      // ✅ بررسی و پاکسازی callback_url
+      let callbackUrl = `${serverUrl}/site/order/callback`;
+      // حذف trailing slash اگر وجود دارد
+      callbackUrl = callbackUrl.replace(/\/$/, '');
+      // بررسی معتبر بودن URL
+      try {
+        new URL(callbackUrl);
+      } catch (urlError) {
+        this.logger.error(`Invalid callback URL: ${callbackUrl}`);
+        throw new BadRequestException('آدرس بازگشت نامعتبر است');
+      }
+
+      // Build metadata object
+      const metadata: any = {};
+      if (mobile) metadata.mobile = mobile;
+      if (email) metadata.email = email;
+      if (orderId) metadata.order_id = orderId;
+
+      // Build bank data according to Zarinpal v4 API
+      const bankData: any = {
         merchant_id: merchantId,
-        amount: finalPrice * 10,
+        amount: Math.round(finalPrice * 10), // Convert Toman to Rials (round to avoid decimal)
+        currency: 'IRT', // Iranian Toman
         description: 'Gold Gallery Order',
-        callback_url: `${serverUrl}/site/order/callback`,
+        callback_url: callbackUrl,
       };
+
+      // Add metadata if available
+      if (Object.keys(metadata).length > 0) {
+        bankData.metadata = metadata;
+      }
+
+      // Determine bank URL based on environment
+      // Sandbox: https://sandbox.zarinpal.com/pg/v4/payment/request.json
+      // Production: https://payment.zarinpal.com/pg/v4/payment/request.json
+      const baseUrl =
+        isDevelopment && isTestMerchant
+          ? 'https://sandbox.zarinpal.com'
+          : 'https://payment.zarinpal.com';
+      const bankUrl = `${baseUrl}/pg/v4/payment/request.json`;
 
       this.logger.log(
         `Creating payment request for amount ${finalPrice} Toman (${finalPrice * 10} Rials)`,
@@ -391,6 +481,7 @@ export class OrderService {
         timeout: 10000, // 10 second timeout
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
       });
 
@@ -435,8 +526,86 @@ export class OrderService {
             );
           }
 
+          // ✅ استخراج پیام خطای دقیق از Zarinpal
+          let errorMessage = 'لطفاً دوباره تلاش کنید';
+
+          if (errorData?.errors) {
+            // بررسی همه فیلدهای خطا
+            const errorFields = Object.keys(errorData.errors);
+            if (errorFields.length > 0) {
+              const firstErrorField = errorFields[0];
+              const firstError = errorData.errors[firstErrorField];
+              if (Array.isArray(firstError) && firstError.length > 0) {
+                errorMessage = firstError[0];
+              } else if (typeof firstError === 'string') {
+                errorMessage = firstError;
+              }
+            }
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          }
+
+          // ✅ در development mode، اگر خطای 422 مربوط به merchant_id باشد، از mock استفاده کن
+          const nodeEnvInCatch =
+            this.configService.get<string>('NODE_ENV') || 'development';
+          const isDevelopmentInCatch = nodeEnvInCatch !== 'production';
+          const useRealPaymentInCatch =
+            this.configService.get<string>('USE_REAL_PAYMENT') === 'true';
+
+          if (isDevelopmentInCatch && errorStatus === 422) {
+            const isMerchantError =
+              errorMessage.includes('merchant') ||
+              errorMessage.includes('merchant_id') ||
+              errorData?.errors?.merchant_id;
+
+            if (isMerchantError && !useRealPaymentInCatch) {
+              this.logger.warn(
+                `⚠️ Development Mode: Merchant ID error detected. Falling back to mock payment (amount: ${finalPrice} Toman)`,
+              );
+
+              // Generate a mock authority code
+              const mockAuthority = `A0000000000000000000000000000000000000${Date.now().toString().slice(-10)}`;
+              return {
+                code: 100,
+                message: 'موفق',
+                authority: mockAuthority,
+              };
+            }
+          }
+
+          // ✅ پیام خطای خاص برای خطاهای رایج
+          if (errorStatus === 422) {
+            if (
+              errorMessage.includes('amount') ||
+              errorMessage.includes('مبلغ')
+            ) {
+              errorMessage = 'مبلغ سفارش نامعتبر است. لطفاً دوباره تلاش کنید';
+            } else if (
+              errorMessage.includes('callback') ||
+              errorMessage.includes('callback_url')
+            ) {
+              errorMessage =
+                'آدرس بازگشت نامعتبر است. لطفاً با پشتیبانی تماس بگیرید';
+            } else if (
+              errorMessage.includes('merchant') ||
+              errorMessage.includes('merchant_id')
+            ) {
+              if (isDevelopmentInCatch) {
+                errorMessage =
+                  'شناسه پذیرنده نامعتبر است. در حالت development، از mock payment استفاده می‌شود';
+              } else {
+                errorMessage =
+                  'شناسه پذیرنده نامعتبر است. لطفاً با پشتیبانی تماس بگیرید';
+              }
+            }
+          }
+
+          this.logger.error(
+            `Payment request failed: ${errorStatus} - ${errorMessage}`,
+          );
+
           throw new BadRequestException(
-            `خطای درگاه بانکی (${errorStatus}): ${errorData?.errors?.merchant_id?.[0] || errorData?.message || 'لطفاً دوباره تلاش کنید'}`,
+            `خطای درگاه بانکی (${errorStatus}): ${errorMessage}`,
           );
         } else {
           this.logger.error(

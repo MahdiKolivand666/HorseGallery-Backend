@@ -43,7 +43,9 @@ export class CartCleanupService {
         // وقتی فعالیت واقعی انجام می‌شود، timer را reset کن (CART_EXPIRATION_MINUTES دقیقه جدید)
         cart.lastActivityAt = new Date();
         const expirationTime = new Date();
-        expirationTime.setMinutes(expirationTime.getMinutes() + CART_EXPIRATION_MINUTES);
+        expirationTime.setMinutes(
+          expirationTime.getMinutes() + CART_EXPIRATION_MINUTES,
+        );
         cart.expiresAt = expirationTime;
         // ✅ Reset expiredNotifiedAt چون cart دوباره فعال شده است
         cart.expiredNotifiedAt = undefined;

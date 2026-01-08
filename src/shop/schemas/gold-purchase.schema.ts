@@ -60,7 +60,9 @@ GoldPurchaseSchema.pre('save', function (next) {
   // تنظیم expiresAt: CART_EXPIRATION_MINUTES دقیقه بعد از lastActivityAt
   if (!this.expiresAt || this.isModified('lastActivityAt')) {
     const expirationTime = new Date(this.lastActivityAt || Date.now());
-    expirationTime.setMinutes(expirationTime.getMinutes() + CART_EXPIRATION_MINUTES);
+    expirationTime.setMinutes(
+      expirationTime.getMinutes() + CART_EXPIRATION_MINUTES,
+    );
     this.expiresAt = expirationTime;
   }
 

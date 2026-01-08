@@ -56,4 +56,3 @@ export class UpdateGoldPriceDto {
   @IsOptional()
   source?: string;
 }
-

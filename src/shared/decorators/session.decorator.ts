@@ -9,10 +9,7 @@ export const SessionId = createParamDecorator(
     const request = context.switchToHttp().getRequest();
     // sessionId می‌تواند از Cookie یا Header بیاید
     return (
-      request?.cookies?.sessionId ||
-      request?.headers?.['x-session-id'] ||
-      null
+      request?.cookies?.sessionId || request?.headers?.['x-session-id'] || null
     );
   },
 );
-

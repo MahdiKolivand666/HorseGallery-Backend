@@ -39,6 +39,50 @@ export class ShippingService {
     return { count, shippings };
   }
 
+  /**
+   * دریافت همه shipping methods فعال
+   * برای استفاده در Frontend
+   */
+  async findActive(): Promise<Shipping[]> {
+    return this.shippingModel
+      .find({ isActive: true })
+      .select({ __v: 0 })
+      .sort({ isDefault: -1, price: 1 }) // ✅ default اول، سپس بر اساس قیمت
+      .exec();
+  }
+
+  /**
+   * دریافت shipping method پیش‌فرض
+   */
+  async findDefault(): Promise<Shipping | null> {
+    return this.shippingModel
+      .findOne({ isActive: true, isDefault: true })
+      .select({ __v: 0 })
+      .exec();
+  }
+
+  /**
+   * بررسی معتبر بودن shipping ID
+   */
+  async validateShippingId(id: string): Promise<boolean> {
+    if (!this.isValidMongoId(id)) {
+      return false;
+    }
+
+    const shipping = await this.shippingModel
+      .findOne({ _id: id, isActive: true })
+      .exec();
+
+    return !!shipping;
+  }
+
+  /**
+   * بررسی اینکه آیا ID یک MongoDB ObjectId معتبر است
+   */
+  private isValidMongoId(id: string): boolean {
+    return /^[0-9a-fA-F]{24}$/.test(id);
+  }
+
   async findOne(id: string, selectObject: Record<string, 0 | 1> = { __v: 0 }) {
     const shipping = await this.shippingModel
       .findOne({ _id: id })

@@ -20,4 +20,3 @@ export class SearchProductQueryDto {
   @IsString()
   sort?: string; // Sort option: newest, oldest, price-asc, price-desc, popular (default: newest)
 }
-

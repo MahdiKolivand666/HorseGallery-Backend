@@ -61,4 +61,3 @@ export class AnnouncementController {
     return this.announcementService.delete(id);
   }
 }
-

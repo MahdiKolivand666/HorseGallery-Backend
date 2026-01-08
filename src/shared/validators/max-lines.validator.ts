@@ -27,7 +27,7 @@ export function MaxLines(
   maxLines: number,
   validationOptions?: ValidationOptions,
 ) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'maxLines',
       target: object.constructor,
