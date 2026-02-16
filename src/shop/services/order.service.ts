@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -19,6 +20,7 @@ import { OrderQueryDto } from '../dtos/order-query.dto';
 import { sortFunction } from 'src/shared/utils/sort-utils';
 import { calculateItemTotal } from 'src/shared/utils/price-calculator';
 import { User } from 'src/user/schemas/user.schema';
+import { Address } from '../schemas/address.schema';
 
 @Injectable()
 export class OrderService {
@@ -29,6 +31,7 @@ export class OrderService {
     @InjectModel(OrderItem.name)
     private readonly orderItemModel: Model<OrderItem>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(Address.name) private readonly addressModel: Model<Address>,
     private readonly cartService: CartService,
     private readonly shippingService: ShippingService,
     private readonly productService: ProductService,
@@ -37,6 +40,81 @@ export class OrderService {
 
   async createOrder(body: CreateOrderDto, user: string) {
     const { cartId, addressId, shippingId } = body;
+
+    // ✅ Validation آدرس (طبق مستندات Frontend)
+    if (
+      !addressId ||
+      (typeof addressId === 'string' && addressId.trim() === '')
+    ) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: ['آدرس تحویل الزامی است'],
+        code: 'ADDRESS_REQUIRED',
+      });
+    }
+
+    const addressIdStr = addressId.toString().trim();
+    if (!/^[0-9a-fA-F]{24}$/.test(addressIdStr)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: ['آدرس انتخاب شده معتبر نیست'],
+        code: 'INVALID_ADDRESS_ID',
+      });
+    }
+
+    const address = await this.addressModel.findById(addressIdStr).lean();
+    if (!address) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: ['آدرس انتخاب شده یافت نشد'],
+        code: 'ADDRESS_NOT_FOUND',
+      });
+    }
+
+    const rawUserId =
+      address.userId ?? (address as Record<string, unknown>).userId;
+    const addressUserIdStr =
+      rawUserId != null &&
+      typeof rawUserId === 'object' &&
+      'toString' in rawUserId
+        ? (rawUserId as { toString(): string }).toString()
+        : typeof rawUserId === 'string'
+          ? rawUserId
+          : '';
+    if (addressUserIdStr && addressUserIdStr !== user) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: ['شما اجازه دسترسی به این آدرس را ندارید'],
+        code: 'ADDRESS_ACCESS_DENIED',
+      });
+    }
+
+    const requiredFields: { key: string; label: string }[] = [
+      { key: 'title', label: 'عنوان' },
+      { key: 'province', label: 'استان' },
+      { key: 'city', label: 'شهر' },
+      { key: 'postalCode', label: 'کد پستی' },
+      { key: 'address', label: 'آدرس' },
+      { key: 'firstName', label: 'نام' },
+      { key: 'lastName', label: 'نام خانوادگی' },
+      { key: 'mobile', label: 'شماره موبایل' },
+    ];
+
+    for (const { key, label } of requiredFields) {
+      const value = (address as Record<string, unknown>)[key];
+      const str =
+        typeof value === 'string' || typeof value === 'number'
+          ? String(value)
+          : '';
+      if (value === undefined || value === null || str.trim() === '') {
+        throw new BadRequestException({
+          statusCode: 400,
+          message: [`فیلد ${label} در آدرس خالی است`],
+          code: 'INCOMPLETE_ADDRESS',
+          field: key,
+        });
+      }
+    }
 
     // Check if we're in development mode with test merchant
     const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
