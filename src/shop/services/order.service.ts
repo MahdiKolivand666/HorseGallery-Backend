@@ -47,6 +47,8 @@ export class OrderService {
       merchantId === 'your-merchant-id-here' ||
       merchantId.includes('test') ||
       merchantId.includes('sandbox');
+    const useRealPayment =
+      this.configService.get<string>('USE_REAL_PAYMENT') === 'true';
 
     // Generate idempotency key based on user and cart (without timestamp)
     const idempotencyKey = `order_${user}_${cartId}`;
@@ -71,8 +73,10 @@ export class OrderService {
       ) {
         // Return existing order's response
         const orderId = (existingOrder._id as Types.ObjectId).toString();
-        const paymentUrl =
-          isDevelopment && isTestMerchant
+        const isMockPayment = isDevelopment && !useRealPayment;
+        const paymentUrl = isMockPayment
+          ? null
+          : isDevelopment && isTestMerchant
             ? null
             : `https://payment.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
         return {
@@ -100,8 +104,10 @@ export class OrderService {
 
         await existingOrder.save();
         const orderId = (existingOrder._id as Types.ObjectId).toString();
-        const paymentUrl =
-          isDevelopment && isTestMerchant
+        const isMockPayment = isDevelopment && !useRealPayment;
+        const paymentUrl = isMockPayment
+          ? null
+          : isDevelopment && isTestMerchant
             ? null
             : `https://payment.zarinpal.com/pg/StartPay/${existingOrder.refId}`;
         return {
@@ -231,9 +237,14 @@ export class OrderService {
       );
 
       // Generate payment URL for production
-      const paymentUrl =
-        isDevelopment && isTestMerchant
-          ? null
+      // ✅ Generate payment URL
+      // اگر Mock Payment استفاده شده باشد (development + !useRealPayment)، نباید به Zarinpal هدایت شود
+      // چون authority code در Zarinpal ثبت نشده است
+      const isMockPayment = isDevelopment && !useRealPayment;
+      const paymentUrl = isMockPayment
+        ? null // Mock Payment - نباید به Zarinpal هدایت شود
+        : isDevelopment && isTestMerchant
+          ? null // Test Merchant - نباید به production هدایت شود
           : `https://payment.zarinpal.com/pg/StartPay/${order.refId}`;
 
       return {
